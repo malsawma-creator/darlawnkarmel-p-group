@@ -21,6 +21,7 @@ interface ThurawnPageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const ThurawnPage: React.FC<ThurawnPageProps> = ({

@@ -19,6 +19,7 @@ interface SettingsPageProps {
   onOpenLogin: () => void;
   onDataChanged: () => void;
   onNavigate?: (tab: TabType) => void;
+  dataVersion?: number;
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({

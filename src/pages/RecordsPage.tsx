@@ -20,6 +20,7 @@ interface RecordsPageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const RecordsPage: React.FC<RecordsPageProps> = ({

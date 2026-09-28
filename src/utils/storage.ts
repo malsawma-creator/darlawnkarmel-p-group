@@ -27,6 +27,7 @@ import {
   clearAllFirestoreCollections,
   COLLECTIONS 
 } from './firebaseService';
+import { safeSetItem } from './safeStorage';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'kpg_current_user_v4',
@@ -85,20 +86,20 @@ const INITIAL_SUGGESTIONS: Suggestion[] = [];
 export const Storage = {
   init() {
     if (!localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(INITIAL_MEMBERS));
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(INITIAL_NOTICES));
-      localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(INITIAL_COMPETITIONS));
-      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(INITIAL_SUBMISSIONS));
-      localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(INITIAL_MEETINGS));
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_RECORDS));
-      localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(INITIAL_BOOK_REVIEWS));
-      localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(INITIAL_SUGGESTIONS));
-      localStorage.setItem(STORAGE_KEYS.PROMISE_BUDGETS, JSON.stringify(INITIAL_PROMISE_BUDGETS));
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(INITIAL_EXPENSES));
-      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(INITIAL_PAYMENTS));
-      localStorage.setItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(INITIAL_EX_OFFICIO));
-      localStorage.setItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify([]));
-      localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+      safeSetItem(STORAGE_KEYS.MEMBERS, JSON.stringify(INITIAL_MEMBERS));
+      safeSetItem(STORAGE_KEYS.NOTICES, JSON.stringify(INITIAL_NOTICES));
+      safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(INITIAL_COMPETITIONS));
+      safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(INITIAL_SUBMISSIONS));
+      safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(INITIAL_MEETINGS));
+      safeSetItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_RECORDS));
+      safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(INITIAL_BOOK_REVIEWS));
+      safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(INITIAL_SUGGESTIONS));
+      safeSetItem(STORAGE_KEYS.PROMISE_BUDGETS, JSON.stringify(INITIAL_PROMISE_BUDGETS));
+      safeSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(INITIAL_EXPENSES));
+      safeSetItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(INITIAL_PAYMENTS));
+      safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(INITIAL_EX_OFFICIO));
+      safeSetItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify([]));
+      safeSetItem(STORAGE_KEYS.INITIALIZED, 'true');
     }
 
     // Sanitize and remove all old hardcoded dummy/sample records if present
@@ -125,7 +126,7 @@ export const Storage = {
           if (Array.isArray(arr)) {
             const filtered = arr.filter((item: any) => !mockIds.includes(item.id));
             if (filtered.length !== arr.length) {
-              localStorage.setItem(key, JSON.stringify(filtered));
+              safeSetItem(key, JSON.stringify(filtered));
             }
           }
         } catch (e) {}
@@ -159,7 +160,7 @@ export const Storage = {
 
   setCurrentUser(member: Member | null) {
     if (member) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
+      safeSetItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
@@ -172,7 +173,7 @@ export const Storage = {
   },
 
   saveMembers(members: Member[]) {
-    localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+    safeSetItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
   },
 
   // Add Member (Supports Pending status for self-registration)
@@ -311,7 +312,7 @@ export const Storage = {
   },
 
   savePromiseBudgets(budgets: PromiseBudget[]) {
-    localStorage.setItem(STORAGE_KEYS.PROMISE_BUDGETS, JSON.stringify(budgets));
+    safeSetItem(STORAGE_KEYS.PROMISE_BUDGETS, JSON.stringify(budgets));
   },
 
   createOrUpdatePromiseBudget(data: Partial<PromiseBudget> & { memberId: string; promisedAmount: number }): PromiseBudget {
@@ -369,7 +370,7 @@ export const Storage = {
       id: `exp-${Date.now()}`,
     };
     expenses.unshift(newExp);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    safeSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
     addToFirestore(COLLECTIONS.EXPENSES, newExp.id, newExp);
     NotificationService.notifyNewUpdate('Sum Hmanral Thar', `${newExp.title}: ₹${newExp.amount}`);
     return newExp;
@@ -377,13 +378,13 @@ export const Storage = {
 
   updateExpense(expense: ExpenseRecord) {
     const expenses = this.getExpenses().map((e) => (e.id === expense.id ? expense : e));
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    safeSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
     updateInFirestore(COLLECTIONS.EXPENSES, expense.id, expense);
   },
 
   deleteExpense(id: string) {
     const expenses = this.getExpenses().filter((e) => e.id !== id);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    safeSetItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
     deleteFromFirestore(COLLECTIONS.EXPENSES, id);
   },
 
@@ -401,7 +402,7 @@ export const Storage = {
       date: new Date().toISOString().split('T')[0],
     };
     payments.unshift(newPay);
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+    safeSetItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
     addToFirestore(COLLECTIONS.PAYMENTS, newPay.id, newPay);
 
     // Update member's Promise Budget paidAmount
@@ -419,7 +420,7 @@ export const Storage = {
 
   updatePayment(payment: PaymentTransaction) {
     const payments = this.getPayments().map((p) => (p.id === payment.id ? payment : p));
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+    safeSetItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
     updateInFirestore(COLLECTIONS.PAYMENTS, payment.id, payment);
   },
 
@@ -437,7 +438,7 @@ export const Storage = {
       }
     }
     const filtered = payments.filter((p) => p.id !== id);
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(filtered));
+    safeSetItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(filtered));
     deleteFromFirestore(COLLECTIONS.PAYMENTS, id);
   },
 
@@ -477,7 +478,7 @@ export const Storage = {
       id: `not-${Date.now()}`,
     };
     notices.unshift(newNotice);
-    localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
+    safeSetItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
     addToFirestore(COLLECTIONS.NOTICES, newNotice.id, newNotice);
     NotificationService.notifyNewUpdate(`Thuchhuah: ${newNotice.title}`, newNotice.content.slice(0, 70));
     return newNotice;
@@ -485,13 +486,13 @@ export const Storage = {
 
   updateNotice(notice: Notice) {
     const notices = this.getNotices().map((n) => (n.id === notice.id ? notice : n));
-    localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
+    safeSetItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
     updateInFirestore(COLLECTIONS.NOTICES, notice.id, notice);
   },
 
   deleteNotice(id: string) {
     const notices = this.getNotices().filter((n) => n.id !== id);
-    localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
+    safeSetItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
     deleteFromFirestore(COLLECTIONS.NOTICES, id);
   },
 
@@ -511,7 +512,7 @@ export const Storage = {
       status: 'Active',
     };
     comps.unshift(newComp);
-    localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
+    safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
     addToFirestore(COLLECTIONS.COMPETITIONS, newComp.id, newComp);
     NotificationService.notifyNewUpdate(`Intihsiakna Thar: ${newComp.title}`);
     return newComp;
@@ -519,13 +520,13 @@ export const Storage = {
 
   updateCompetition(comp: Competition) {
     const comps = this.getCompetitions().map((c) => (c.id === comp.id ? comp : c));
-    localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
+    safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
     updateInFirestore(COLLECTIONS.COMPETITIONS, comp.id, comp);
   },
 
   deleteCompetition(id: string) {
     const comps = this.getCompetitions().filter((c) => c.id !== id);
-    localStorage.setItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
+    safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
     deleteFromFirestore(COLLECTIONS.COMPETITIONS, id);
   },
 
@@ -549,7 +550,7 @@ export const Storage = {
       marks: {},
     };
     subs.unshift(newSub);
-    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+    safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
     addToFirestore(COLLECTIONS.SUBMISSIONS, newSub.id, newSub);
     NotificationService.notifyNewUpdate(`Thlalak/Item thar thehluh a ni`, `${newSub.title} by ${newSub.memberHming}`);
     return newSub;
@@ -557,13 +558,13 @@ export const Storage = {
 
   updateSubmission(sub: Submission) {
     const subs = this.getSubmissions().map((s) => (s.id === sub.id ? sub : s));
-    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+    safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
     updateInFirestore(COLLECTIONS.SUBMISSIONS, sub.id, sub);
   },
 
   deleteSubmission(id: string) {
     const subs = this.getSubmissions().filter((s) => s.id !== id);
-    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+    safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
     deleteFromFirestore(COLLECTIONS.SUBMISSIONS, id);
   },
 
@@ -576,7 +577,7 @@ export const Storage = {
       } else {
         sub.votes.push(memberId);
       }
-      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+      safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
       updateInFirestore(COLLECTIONS.SUBMISSIONS, sub.id, sub);
       return sub;
     }
@@ -589,7 +590,7 @@ export const Storage = {
     if (sub) {
       if (!sub.marks) sub.marks = {};
       sub.marks[obMemberId] = mark;
-      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+      safeSetItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
       updateInFirestore(COLLECTIONS.SUBMISSIONS, sub.id, sub);
       return sub;
     }
@@ -612,7 +613,7 @@ export const Storage = {
       attendees: [],
     };
     meetings.unshift(newMeet);
-    localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+    safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
     addToFirestore(COLLECTIONS.MEETINGS, newMeet.id, newMeet);
     NotificationService.notifyNewUpdate(`OB Committee Meeting: ${newMeet.title}`, newMeet.dateTime);
     return newMeet;
@@ -620,7 +621,7 @@ export const Storage = {
 
   updateMeeting(meeting: CommitteeMeeting) {
     const meetings = this.getMeetings().map((m) => (m.id === meeting.id ? meeting : m));
-    localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+    safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
     updateInFirestore(COLLECTIONS.MEETINGS, meeting.id, meeting);
   },
 
@@ -636,7 +637,7 @@ export const Storage = {
           role: member.role,
           presentAt: new Date().toISOString(),
         });
-        localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+        safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
         updateInFirestore(COLLECTIONS.MEETINGS, m.id, m);
       }
       return m;
@@ -646,7 +647,7 @@ export const Storage = {
 
   deleteMeeting(id: string) {
     const meetings = this.getMeetings().filter((m) => m.id !== id);
-    localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+    safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
     deleteFromFirestore(COLLECTIONS.MEETINGS, id);
   },
 
@@ -663,7 +664,7 @@ export const Storage = {
         id: `ag-${Date.now()}`,
         submittedAt: new Date().toISOString(),
       });
-      localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+      safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
       updateInFirestore(COLLECTIONS.MEETINGS, m.id, m);
       return m;
     }
@@ -675,7 +676,7 @@ export const Storage = {
     const m = meetings.find((meet) => meet.id === meetingId);
     if (m && m.agendaItems) {
       m.agendaItems = m.agendaItems.filter((a) => a.id !== agendaItemId);
-      localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+      safeSetItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
       updateInFirestore(COLLECTIONS.MEETINGS, m.id, m);
       return m;
     }
@@ -696,20 +697,20 @@ export const Storage = {
       id: `exo-${Date.now()}`,
     };
     list.push(newItem);
-    localStorage.setItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
+    safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
     addToFirestore(COLLECTIONS.EX_OFFICIO, newItem.id, newItem);
     return newItem;
   },
 
   updateExOfficio(item: ExOfficio) {
     const list = this.getExOfficio().map((e) => (e.id === item.id ? item : e));
-    localStorage.setItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
+    safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
     updateInFirestore(COLLECTIONS.EX_OFFICIO, item.id, item);
   },
 
   deleteExOfficio(id: string) {
     const list = this.getExOfficio().filter((e) => e.id !== id);
-    localStorage.setItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
+    safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(list));
     deleteFromFirestore(COLLECTIONS.EX_OFFICIO, id);
   },
 
@@ -727,7 +728,7 @@ export const Storage = {
       id: `rec-${Date.now()}`,
     };
     recs.unshift(newRec);
-    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
+    safeSetItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
     addToFirestore(COLLECTIONS.RECORDS, newRec.id, newRec);
     NotificationService.notifyNewUpdate(`Record Thar: ${newRec.title}`, newRec.content.slice(0, 60));
     return newRec;
@@ -735,13 +736,13 @@ export const Storage = {
 
   updateRecord(record: CommitteeRecord) {
     const recs = this.getRecords().map((r) => (r.id === record.id ? record : r));
-    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
+    safeSetItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
     updateInFirestore(COLLECTIONS.RECORDS, record.id, record);
   },
 
   deleteRecord(id: string) {
     const recs = this.getRecords().filter((r) => r.id !== id);
-    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
+    safeSetItem(STORAGE_KEYS.RECORDS, JSON.stringify(recs));
     deleteFromFirestore(COLLECTIONS.RECORDS, id);
   },
 
@@ -761,7 +762,7 @@ export const Storage = {
       goodReads: [],
     };
     reviews.unshift(newRev);
-    localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
+    safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
     addToFirestore(COLLECTIONS.BOOK_REVIEWS, newRev.id, newRev);
     NotificationService.notifyNewUpdate(`Book Review Thar: ${newRev.lehkhabuHming}`, `by ${newRev.memberHming}`);
     return newRev;
@@ -769,18 +770,18 @@ export const Storage = {
 
   updateBookReview(rev: BookReview) {
     const reviews = this.getBookReviews().map((b) => (b.id === rev.id ? rev : b));
-    localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
+    safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
     updateInFirestore(COLLECTIONS.BOOK_REVIEWS, rev.id, rev);
   },
 
   deleteBookReview(id: string) {
     const reviews = this.getBookReviews().filter((b) => b.id !== id);
-    localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
+    safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
     deleteFromFirestore(COLLECTIONS.BOOK_REVIEWS, id);
   },
 
   clearAllBookReviews() {
-    localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify([]));
+    safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify([]));
     clearCollectionInFirestore(COLLECTIONS.BOOK_REVIEWS);
   },
 
@@ -793,7 +794,7 @@ export const Storage = {
       } else {
         rev.goodReads.push(obMemberId);
       }
-      localStorage.setItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
+      safeSetItem(STORAGE_KEYS.BOOK_REVIEWS, JSON.stringify(reviews));
       updateInFirestore(COLLECTIONS.BOOK_REVIEWS, rev.id, rev);
       return rev;
     }
@@ -816,26 +817,26 @@ export const Storage = {
       status: 'New',
     };
     sugs.unshift(newSug);
-    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
+    safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
     addToFirestore(COLLECTIONS.SUGGESTIONS, newSug.id, newSug);
     return newSug;
   },
 
   updateSuggestion(sug: Suggestion) {
     const sugs = this.getSuggestions().map((s) => (s.id === sug.id ? sug : s));
-    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
+    safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
     updateInFirestore(COLLECTIONS.SUGGESTIONS, sug.id, sug);
   },
 
   deleteSuggestion(id: string) {
     const sugs = this.getSuggestions().filter((s) => s.id !== id);
-    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
+    safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
     deleteFromFirestore(COLLECTIONS.SUGGESTIONS, id);
   },
 
   updateSuggestionStatus(id: string, status: Suggestion['status']) {
     const sugs = this.getSuggestions().map((s) => (s.id === id ? { ...s, status } : s));
-    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
+    safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(sugs));
     updateInFirestore(COLLECTIONS.SUGGESTIONS, id, { status });
   },
 
@@ -847,7 +848,7 @@ export const Storage = {
 
   deleteHlaItem(id: string) {
     const hla = this.getHlaBawm().filter((h) => h.id !== id);
-    localStorage.setItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify(hla));
+    safeSetItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify(hla));
     deleteFromFirestore(COLLECTIONS.HLA_BAWM, id);
   },
 

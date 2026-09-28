@@ -1,5 +1,6 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
+  initializeFirestore,
   getFirestore, 
   doc, 
   setDoc, 
@@ -9,8 +10,17 @@ import {
   onSnapshot, 
   collection, 
   getDocs, 
-  writeBatch 
+  writeBatch,
+  setLogLevel 
 } from 'firebase/firestore';
+import { safeSetItem } from './safeStorage';
+
+// Silence internal firestore reconnection logs
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
 
 const firebaseConfig = {
   projectId: "gifted-hope-zv9wh",
@@ -22,9 +32,19 @@ const firebaseConfig = {
   messagingSenderId: "254184440552",
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firebase with forced long-polling to prevent WebChannel connection drops in sandboxed iframe environments
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+let firestoreInstance: any;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  }, firebaseConfig.firestoreDatabaseId);
+} catch {
+  firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+}
+
+export const db = firestoreInstance;
 
 export const COLLECTIONS = {
   MEMBERS: 'members',
@@ -74,8 +94,25 @@ function cleanUndefined(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-  if (obj instanceof HTMLElement || obj.$typeof || typeof obj === 'function') {
+  if (
+    (typeof HTMLElement !== 'undefined' && obj instanceof HTMLElement) ||
+    obj.$$typeof ||
+    obj._reactInternals ||
+    obj.nativeEvent ||
+    obj.firestore ||
+    obj._delegate ||
+    obj.converter ||
+    typeof obj === 'function' ||
+    typeof obj === 'symbol'
+  ) {
     return undefined;
+  }
+  if (typeof obj.toDate === 'function') {
+    try {
+      return obj.toDate().toISOString();
+    } catch {
+      return undefined;
+    }
   }
   if (seen.has(obj)) {
     return undefined;
@@ -182,24 +219,37 @@ export function syncAllCollections(onDataUpdated: () => void) {
   Object.entries(STORAGE_TO_FIRESTORE).forEach(([storageKey, collectionName]) => {
     const colRef = collection(db, collectionName);
     const unsub = onSnapshot(colRef, (snapshot) => {
-      const items: any[] = [];
-      snapshot.forEach((docSnap) => {
-        if (ALL_MOCK_IDS.has(docSnap.id)) {
-          // Delete mock document from cloud database permanently
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
-          items.push({ id: docSnap.id, ...docSnap.data() });
-        }
-      });
+      try {
+        const items: any[] = [];
+        snapshot.forEach((docSnap) => {
+          if (ALL_MOCK_IDS.has(docSnap.id)) {
+            // Delete mock document from cloud database permanently
+            deleteDoc(docSnap.ref).catch(() => {});
+          } else {
+            const raw = docSnap.data();
+            const clean = cleanUndefined({ id: docSnap.id, ...raw });
+            if (clean) {
+              items.push(clean);
+            }
+          }
+        });
 
-      // Update local storage with clean real-time cloud database data
-      localStorage.setItem(storageKey, JSON.stringify(items));
-      onDataUpdated();
+        // Update local storage with clean real-time cloud database data safely
+        safeSetItem(storageKey, items);
+        onDataUpdated();
+      } catch (err) {
+        console.warn(`Error processing snapshot on [${collectionName}]:`, err);
+      }
     }, (error: any) => {
-      if (error?.message?.includes('offline') || error?.message?.includes('unavailable') || !navigator.onLine) {
-        // Suppress noisy offline logs
+      if (
+        error?.message?.includes('offline') || 
+        error?.message?.includes('unavailable') || 
+        error?.message?.includes('Could not reach Cloud Firestore') ||
+        !navigator.onLine
+      ) {
+        // Suppress noisy offline logs in sandboxed or offline mode
       } else {
-        console.warn(`Listener warning on [${collectionName}]:`, error?.message || error);
+        console.warn(`Listener notice on [${collectionName}]:`, error?.message || error);
       }
     });
     unsubscribers.push(unsub);

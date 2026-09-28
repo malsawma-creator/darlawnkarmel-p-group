@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "Branch youth member record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hming": { "type": "string" },
+        "nuLehPa": { "type": "string" },
+        "veng": { "type": "string" },
+        "phone": { "type": "string" },
+        "dob": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Mipa", "Hmeichhia"] },
+        "role": { "type": "string" },
+        "status": { "type": "string", "enum": ["Approved", "Pending", "Rejected"] }
+      },
+      "required": ["id", "hming", "phone", "role", "status"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Official branch notice or announcement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "postedBy": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "date", "postedBy"]
+    },
+    "Competition": {
+      "title": "Competition",
+      "description": "Competition event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "lastDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Closed"] }
+      },
+      "required": ["id", "title", "lastDate", "status"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Photo/video submission for competition",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberHming": { "type": "string" },
+        "title": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "fileType": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["id", "competitionId", "memberId", "fileUrl"]
+    },
+    "BookReview": {
+      "title": "BookReview",
+      "description": "Member book review record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "lehkhabuHming": { "type": "string" },
+        "ziaktu": { "type": "string" },
+        "review": { "type": "string" },
+        "photo": { "type": "string" },
+        "memberId": { "type": "string" },
+        "memberHming": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "lehkhabuHming", "memberId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Member records"
+    },
+    "/notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Branch notices and circulars"
+    },
+    "/competitions/{competitionId}": {
+      "schema": "Competition",
+      "description": "Branch photo and skill contests"
+    },
+    "/submissions/{submissionId}": {
+      "schema": "Submission",
+      "description": "Contest submissions"
+    },
+    "/book_reviews/{reviewId}": {
+      "schema": "BookReview",
+      "description": "Member book reviews"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Member, Competition, Submission, BookReview, isOBRole, isDeveloperUser } from '../types';
 import { Storage } from '../utils/storage';
 import confetti from 'canvas-confetti';
@@ -20,12 +20,15 @@ import {
   CheckCircle2,
   Edit2,
   Trash2,
+  Maximize2,
 } from 'lucide-react';
+import { PhotoLightbox, LightboxPhoto } from '../components/PhotoLightbox';
 
 interface IntihsiaknaPageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 type MainTab = 'contests' | 'reading';
@@ -35,7 +38,40 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   onOpenLogin,
   onDataChanged,
 }) => {
-  const [mainTab, setMainTab] = useState<MainTab>('contests');
+  // Persistent mainTab: reading vs contests (remembers tab across data changes)
+  const [mainTab, setMainTabState] = useState<MainTab>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash === '#reading' || hash === '#book-reading') return 'reading';
+      if (hash === '#contests') return 'contests';
+      const saved = sessionStorage.getItem('kpg_intihsiakna_tab');
+      if (saved === 'reading' || saved === 'contests') return saved as MainTab;
+    }
+    return 'contests';
+  });
+
+  const setMainTab = (tab: MainTab) => {
+    setMainTabState(tab);
+    try {
+      sessionStorage.setItem('kpg_intihsiakna_tab', tab);
+      if (typeof window !== 'undefined') {
+        window.location.hash = tab === 'reading' ? 'reading' : 'contests';
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash === '#reading' || hash === '#book-reading') {
+        setMainTabState('reading');
+      } else if (hash === '#contests') {
+        setMainTabState('contests');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   // --- GENERAL COMPETITIONS DATA ---
   const competitions = Storage.getCompetitions();
@@ -81,6 +117,17 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   const [newType, setNewType] = useState('Photography');
   const [newDesc, setNewDesc] = useState('');
   const [newLastDate, setNewLastDate] = useState('2026-10-31');
+
+  // Photo Lightbox state
+  const [lightboxPhotos, setLightboxPhotos] = useState<LightboxPhoto[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
+
+  const openPhotoLightbox = (photos: LightboxPhoto[], index: number = 0) => {
+    setLightboxPhotos(photos);
+    setLightboxIndex(index);
+    setShowLightbox(true);
+  };
 
   // --- BOOK READING CHALLENGE (5-BOOK REWARD) DATA ---
   const bookReviews = Storage.getBookReviews();
@@ -307,12 +354,14 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       review: editBookReview.trim() || undefined,
     });
     setEditingBook(null);
+    setMainTab('reading');
     onDataChanged();
   };
 
   const handleDeleteBook = (id: string, bookName: string) => {
     if (window.confirm(`Are you sure you want to delete book review "${bookName}"?`)) {
       Storage.deleteBookReview(id);
+      setMainTab('reading');
       onDataChanged();
     }
   };
@@ -340,6 +389,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
     setBookReview('');
     setBookPhoto('');
     setShowAddBookModal(false);
+    setMainTab('reading');
 
     if (myReadCount + 1 >= 5) {
       triggerConfetti();
@@ -353,6 +403,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       return;
     }
     Storage.toggleChhiarTha(bookId, currentUser.id);
+    setMainTab('reading');
     onDataChanged();
   };
 
@@ -454,6 +505,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       {/* TOP SEGMENTED SWITCHER: GENERAL CONTESTS vs 5-BOOK READING ACTIVITY */}
       <div className="grid grid-cols-2 gap-2 bg-slate-200/70 p-1 rounded-2xl max-w-lg shadow-inner">
         <button
+          type="button"
           onClick={() => setMainTab('contests')}
           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
             mainTab === 'contests'
@@ -466,6 +518,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setMainTab('reading')}
           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
             mainTab === 'reading'
@@ -661,12 +714,30 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                     >
                       {/* Media */}
                       {sub.fileType === 'image' && (
-                        <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
+                        <div 
+                          onClick={() => {
+                            const imageSubs = submissions.filter((s) => s.fileType === 'image');
+                            const photosList: LightboxPhoto[] = imageSubs.map((s) => ({
+                              url: s.fileUrl,
+                              title: s.title,
+                              subtitle: `Thehluttu: ${s.memberHming} (${s.memberVeng}) • ${s.submittedAt.split('T')[0]}`,
+                              description: s.description,
+                            }));
+                            const idx = imageSubs.findIndex((s) => s.id === sub.id);
+                            openPhotoLightbox(photosList, Math.max(0, idx));
+                          }}
+                          className="relative h-48 w-full bg-slate-100 overflow-hidden cursor-pointer group"
+                        >
                           <img
                             src={sub.fileUrl}
                             alt={sub.title}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
+                          <div className="absolute inset-0 bg-slate-950/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="bg-slate-900/80 text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
+                              <Maximize2 className="w-3.5 h-3.5" /> En zauhna (Full View)
+                            </span>
+                          </div>
                         </div>
                       )}
 
@@ -899,6 +970,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
           {/* FILTER BUTTONS */}
           <div className="flex rounded-xl bg-white p-1 border border-slate-200 max-w-md shadow-xs">
             <button
+              type="button"
               onClick={() => setBookFilter('all')}
               className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition ${
                 bookFilter === 'all'
@@ -909,6 +981,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               All Books ({bookReviews.length})
             </button>
             <button
+              type="button"
               onClick={() => setBookFilter('qualified')}
               className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition ${
                 bookFilter === 'qualified'
@@ -920,6 +993,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
             </button>
             {currentUser && (
               <button
+                type="button"
                 onClick={() => setBookFilter('myBooks')}
                 className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition ${
                   bookFilter === 'myBooks'
@@ -985,12 +1059,30 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                       )}
 
                       {bk.photo && (
-                        <div className="h-40 overflow-hidden rounded-xl border border-slate-200">
+                        <div 
+                          onClick={() => {
+                            const allBookPhotos = bookReviews.filter((b) => !!b.photo);
+                            const photosList: LightboxPhoto[] = allBookPhotos.map((b) => ({
+                              url: b.photo!,
+                              title: b.lehkhabuHming,
+                              subtitle: b.ziaktu ? `Ziaktu: ${b.ziaktu} • Chhiartu: ${b.memberHming}` : `Chhiartu: ${b.memberHming}`,
+                              description: b.review,
+                            }));
+                            const idx = allBookPhotos.findIndex((b) => b.id === bk.id);
+                            openPhotoLightbox(photosList, Math.max(0, idx));
+                          }}
+                          className="h-40 overflow-hidden rounded-xl border border-slate-200 cursor-pointer group relative"
+                        >
                           <img
                             src={bk.photo}
                             alt={bk.lehkhabuHming}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
+                          <div className="absolute inset-0 bg-slate-950/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="bg-slate-900/80 text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
+                              <Maximize2 className="w-3.5 h-3.5" /> En zauhna (Full View)
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1009,6 +1101,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                         {(isOB || (currentUser && bk.memberId === currentUser.id)) && (
                           <div className="flex items-center gap-1 mr-1">
                             <button
+                              type="button"
                               onClick={() => handleOpenEditBook(bk)}
                               className="rounded-lg p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-700 transition"
                               title="Edit Book Review"
@@ -1016,6 +1109,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleDeleteBook(bk.id, bk.lehkhabuHming)}
                               className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                               title="Delete Book Review"
@@ -1027,6 +1121,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
                         {/* OBs click "Chhiar tha 👍" */}
                         <button
+                          type="button"
                           onClick={() => handleToggleChhiarTha(bk.id)}
                           className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-xs ${
                             hasGivenThumb
@@ -1588,6 +1683,14 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full-Screen Photo Lightbox */}
+      <PhotoLightbox
+        isOpen={showLightbox}
+        onClose={() => setShowLightbox(false)}
+        photos={lightboxPhotos}
+        initialIndex={lightboxIndex}
+      />
     </div>
   );
 };

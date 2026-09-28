@@ -18,14 +18,18 @@ import {
   Clock,
   MapPin,
   ExternalLink,
+  ChevronRight,
+  Maximize2,
 } from 'lucide-react';
 import { TabType } from '../components/BottomNav';
+import { PhotoLightbox, LightboxPhoto } from '../components/PhotoLightbox';
 
 interface DashboardPageProps {
   currentUser: Member | null;
   onNavigate: (tab: TabType) => void;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -44,6 +48,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const isOB = currentUser && isOBRole(currentUser.role);
   const isDev = isDeveloperUser(currentUser);
   const canEdit = isOB || isDev;
+
+  // Feed Filter state
+  const [feedFilter, setFeedFilter] = useState<'all' | 'notices' | 'photos' | 'info'>('all');
+
+  // Photo Lightbox state
+  const [lightboxPhotos, setLightboxPhotos] = useState<LightboxPhoto[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
 
   // Edit / Add Record Modal state
   const [editingRecord, setEditingRecord] = useState<CommitteeRecord | null>(null);
@@ -137,6 +149,292 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
       {/* PWA Install helper */}
       <PWAInstallButton variant="large" />
+
+      {/* ========================================================================= */}
+      {/* PROFESSIONAL & FANCY FILTERED TIMELINE NOTICE BOARD FEED                    */}
+      {/* ========================================================================= */}
+      {(() => {
+        const notices = Storage.getNotices();
+        const records = Storage.getRecords();
+        const submissions = Storage.getSubmissions();
+        const bookReviews = Storage.getBookReviews();
+
+        const allFeedItems = [
+          ...notices.map((n) => ({
+            id: n.id,
+            type: 'notice' as const,
+            badge: 'NOTICE',
+            badgeClass: 'bg-rose-100 text-rose-700 border border-rose-200',
+            dotClass: 'bg-rose-500 ring-4 ring-rose-50',
+            title: n.title,
+            snippet: n.content,
+            timestamp: new Date(n.date || Date.now()).getTime(),
+            path: `/notices/${n.id}`,
+            raw: n,
+          })),
+          ...records.map((r) => ({
+            id: r.id,
+            type: 'info' as const,
+            badge: 'INFO',
+            badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+            dotClass: 'bg-emerald-500 ring-4 ring-emerald-50',
+            title: r.title,
+            snippet: r.content,
+            timestamp: new Date(r.date || Date.now()).getTime(),
+            path: `/information/${r.id}`,
+            raw: r,
+          })),
+          ...submissions.map((s) => ({
+            id: s.id,
+            type: 'photo' as const,
+            badge: 'PHOTO',
+            badgeClass: 'bg-blue-100 text-blue-700 border border-blue-200',
+            dotClass: 'bg-blue-500 ring-4 ring-blue-50',
+            title: s.title || 'Photo Submission',
+            snippet: s.description || `Uploaded by ${s.memberHming}`,
+            timestamp: new Date(s.submittedAt || Date.now()).getTime(),
+            path: `/photos/${s.id}`,
+            raw: s,
+          })),
+          ...bookReviews.map((b) => ({
+            id: b.id,
+            type: 'photo' as const,
+            badge: 'PHOTO',
+            badgeClass: 'bg-blue-100 text-blue-700 border border-blue-200',
+            dotClass: 'bg-blue-500 ring-4 ring-blue-50',
+            title: b.lehkhabuHming,
+            snippet: b.review || (b.ziaktu ? `Ziaktu: ${b.ziaktu}` : 'Book Review'),
+            timestamp: new Date(b.createdAt || Date.now()).getTime(),
+            path: `/photos/${b.id}`,
+            raw: b,
+          })),
+        ].sort((a, b) => b.timestamp - a.timestamp);
+
+        const noticesCount = allFeedItems.filter(i => i.type === 'notice').length;
+        const photosCount = allFeedItems.filter(i => i.type === 'photo').length;
+        const infoCount = allFeedItems.filter(i => i.type === 'info').length;
+
+        const filteredItems = allFeedItems.filter(item => {
+          if (feedFilter === 'notices') return item.type === 'notice';
+          if (feedFilter === 'photos') return item.type === 'photo';
+          if (feedFilter === 'info') return item.type === 'info';
+          return true;
+        }).slice(0, 20);
+
+        const now = Date.now();
+        const oneDay = 86400000;
+        const oneWeek = oneDay * 7;
+
+        const todayItems = filteredItems.filter((i) => (now - i.timestamp) < oneDay);
+        const thisWeekItems = filteredItems.filter((i) => (now - i.timestamp) >= oneDay && (now - i.timestamp) < oneWeek);
+        const earlierItems = filteredItems.filter((i) => (now - i.timestamp) >= oneWeek);
+
+        const getRelativeTime = (ts: number) => {
+          const diffMs = Date.now() - ts;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          if (diffMins < 1) return 'Just now';
+          if (diffMins < 60) return `${diffMins}m ago`;
+          if (diffHours < 24) return `${diffHours}h ago`;
+          if (diffDays === 1) return 'Yesterday';
+          if (diffDays < 7) return `${diffDays}d ago`;
+          return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+        };
+
+        const renderCard = (item: any) => {
+          const photoUrl = item.raw?.photo || item.raw?.photoUrl || item.raw?.fileUrl;
+          return (
+            <div
+              key={item.id}
+              onClick={() => {
+                if (item.raw && ('lehkhabuHming' in item.raw || item.id?.startsWith('book-'))) {
+                  try {
+                    sessionStorage.setItem('kpg_intihsiakna_tab', 'reading');
+                    window.location.hash = 'reading';
+                  } catch {}
+                  onNavigate('intihsiakna');
+                  return;
+                }
+                window.location.hash = item.path;
+                if (item.type === 'notice' || item.type === 'info') {
+                  onNavigate('records');
+                } else {
+                  try {
+                    sessionStorage.setItem('kpg_intihsiakna_tab', 'contests');
+                  } catch {}
+                  onNavigate('intihsiakna');
+                }
+              }}
+              className="group relative flex items-start gap-3.5 cursor-pointer rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5"
+            >
+              {/* Timeline Dot */}
+              <div className={`mt-1.5 w-3 h-3 rounded-full shrink-0 z-10 ${item.dotClass}`} />
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${item.badgeClass}`}>
+                      {item.badge}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition line-clamp-1">
+                      {item.title}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                      {getRelativeTime(item.timestamp)}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition" />
+                  </div>
+                </div>
+
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500 line-clamp-1">
+                    {item.snippet}
+                  </p>
+                  {photoUrl && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const allPhotos: LightboxPhoto[] = filteredItems
+                          .filter((i) => {
+                            const raw = i.raw as any;
+                            return !!(raw?.photo || raw?.photoUrl || raw?.fileUrl);
+                          })
+                          .map((i) => {
+                            const raw = i.raw as any;
+                            return {
+                              url: (raw?.photo || raw?.photoUrl || raw?.fileUrl) as string,
+                              title: i.title,
+                              subtitle: `${i.badge} • ${getRelativeTime(i.timestamp)}`,
+                              description: i.snippet,
+                            };
+                          });
+                        const idx = allPhotos.findIndex((p) => p.url === photoUrl);
+                        setLightboxPhotos(allPhotos);
+                        setLightboxIndex(Math.max(0, idx));
+                        setShowLightbox(true);
+                      }}
+                      className="group/thumb relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-xs hover:border-blue-400 transition"
+                      title="En zauhna (Full View)"
+                    >
+                      <img
+                        src={photoUrl}
+                        alt=""
+                        className="w-10 h-10 object-cover transition-transform duration-200 group-hover/thumb:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                        <Maximize2 className="w-3 h-3 text-white" />
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <h2 className="text-base font-black tracking-tight text-slate-900">
+                  Karmel P Group Updates
+                </h2>
+              </div>
+              <span className="text-xs font-semibold text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full">
+                {allFeedItems.length} live
+              </span>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar px-1">
+              <button
+                type="button"
+                onClick={() => setFeedFilter('all')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                All ({allFeedItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('notices')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'notices' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Notices ({noticesCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('photos')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'photos' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Photos ({photosCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('info')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'info' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Info ({infoCount})
+              </button>
+            </div>
+
+            {filteredItems.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 shadow-sm">
+                Tun dinhmunah thuchhuah/thaw thar he filter-ah hian a la awm lo.
+              </div>
+            ) : (
+              <div className="relative space-y-4 pl-1">
+                {/* Timeline vertical line */}
+                <div className="absolute left-5 top-4 bottom-4 w-0.5 bg-slate-200 pointer-events-none" />
+
+                {todayItems.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      Today
+                    </div>
+                    <div className="space-y-2.5">
+                      {todayItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+
+                {thisWeekItems.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      This Week
+                    </div>
+                    <div className="space-y-2.5">
+                      {thisWeekItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+
+                {earlierItems.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      Earlier
+                    </div>
+                    <div className="space-y-2.5">
+                      {earlierItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Separation divider between feed and finance card */}
+      <div className="my-8 border-t border-slate-200" />
 
       {/* ========================================================================= */}
       {/* 2. ONE SUM BAWM GREEN CARD (Balance, Progress %, Total)                    */}
@@ -254,6 +552,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
       </div>
+
+
 
       {/* ========================================================================= */}
       {/* 4. UPCOMING MEETING                                                        */}
@@ -504,6 +804,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full-Screen Photo Lightbox */}
+      <PhotoLightbox
+        isOpen={showLightbox}
+        onClose={() => setShowLightbox(false)}
+        photos={lightboxPhotos}
+        initialIndex={lightboxIndex}
+      />
     </div>
   );
 };

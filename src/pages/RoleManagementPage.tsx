@@ -21,6 +21,7 @@ interface RoleManagementPageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({

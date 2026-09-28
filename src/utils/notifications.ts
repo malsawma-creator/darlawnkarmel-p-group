@@ -1,5 +1,6 @@
 import { AppNotification, Member, isDeveloperUser, isOBRole } from '../types';
 import { addToFirestore, updateInFirestore, deleteFromFirestore, COLLECTIONS } from './firebaseService';
+import { safeSetItem } from './safeStorage';
 
 const NOTIFICATIONS_KEY = 'kpg_notifications_v1';
 
@@ -94,21 +95,21 @@ export const NotificationService = {
       }
       return n;
     });
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    safeSetItem(NOTIFICATIONS_KEY, updated);
   },
 
   // Delete a specific notification
   deleteNotification: (id: string) => {
     const all = NotificationService.getNotifications();
     const filtered = all.filter((n) => n.id !== id);
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(filtered));
+    safeSetItem(NOTIFICATIONS_KEY, filtered);
     deleteFromFirestore(COLLECTIONS.APP_NOTIFICATIONS, id);
   },
 
   // Clear all notifications
   clearAllNotifications: () => {
     const all = NotificationService.getNotifications();
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify([]));
+    safeSetItem(NOTIFICATIONS_KEY, []);
     all.forEach((n) => {
       deleteFromFirestore(COLLECTIONS.APP_NOTIFICATIONS, n.id);
     });
@@ -127,7 +128,7 @@ export const NotificationService = {
       forDeveloperOnly: true,
     };
     const updated = [notif, ...all].slice(0, 50);
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    safeSetItem(NOTIFICATIONS_KEY, updated);
     addToFirestore(COLLECTIONS.APP_NOTIFICATIONS, notif.id, notif);
 
     NotificationService.showBrowserNotification(
@@ -150,7 +151,7 @@ export const NotificationService = {
       forOBOnly: true,
     };
     const updated = [notif, ...all].slice(0, 50);
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    safeSetItem(NOTIFICATIONS_KEY, updated);
     addToFirestore(COLLECTIONS.APP_NOTIFICATIONS, notif.id, notif);
 
     NotificationService.showBrowserNotification(
@@ -172,7 +173,7 @@ export const NotificationService = {
       forDeveloperOnly: false,
     };
     const updated = [notif, ...all].slice(0, 50);
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(updated));
+    safeSetItem(NOTIFICATIONS_KEY, updated);
     addToFirestore(COLLECTIONS.APP_NOTIFICATIONS, notif.id, notif);
 
     NotificationService.showBrowserNotification('P Group Darlawn: New update', title);

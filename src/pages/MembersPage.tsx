@@ -26,6 +26,7 @@ interface MembersPageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const MembersPage: React.FC<MembersPageProps> = ({

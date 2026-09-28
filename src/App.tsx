@@ -499,7 +499,8 @@ export default function App() {
           <>
             {currentTab === 'dashboard' && (
               <DashboardPage
-                key={`dash-${dataVersion}`}
+                key="dash-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onNavigate={(tab) => setCurrentTab(tab)}
                 onOpenLogin={() => setShowLoginModal(true)}
@@ -509,7 +510,8 @@ export default function App() {
 
             {currentTab === 'members' && (
               <MembersPage
-                key={`mem-${dataVersion}`}
+                key="mem-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -518,7 +520,8 @@ export default function App() {
 
             {currentTab === 'hruaitute' && (
               <HruaitutePage
-                key={`hruai-${dataVersion}`}
+                key="hruai-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -527,7 +530,8 @@ export default function App() {
 
             {currentTab === 'intihsiakna' && (
               <IntihsiaknaPage
-                key={`comp-${dataVersion}`}
+                key="comp-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -536,7 +540,8 @@ export default function App() {
 
             {currentTab === 'finance' && (
               <FinancePage
-                key={`fin-${dataVersion}`}
+                key="fin-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -545,7 +550,8 @@ export default function App() {
 
             {currentTab === 'records' && (
               <RecordsPage
-                key={`rec-${dataVersion}`}
+                key="rec-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -554,7 +560,8 @@ export default function App() {
 
             {currentTab === 'thurawn' && (
               <ThurawnPage
-                key={`thu-${dataVersion}`}
+                key="thu-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -563,7 +570,8 @@ export default function App() {
 
             {currentTab === 'settings' && (
               <SettingsPage
-                key={`set-${dataVersion}`}
+                key="set-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}
@@ -573,7 +581,8 @@ export default function App() {
 
             {currentTab === 'role_management' && (
               <RoleManagementPage
-                key={`role-${dataVersion}`}
+                key="role-page"
+                dataVersion={dataVersion}
                 currentUser={currentUser}
                 onOpenLogin={() => setShowLoginModal(true)}
                 onDataChanged={handleDataChanged}

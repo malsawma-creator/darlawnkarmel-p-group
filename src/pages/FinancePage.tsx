@@ -36,6 +36,7 @@ interface FinancePageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 type FinanceTab = 'budgets' | 'expenses' | 'transactions';

@@ -29,6 +29,7 @@ interface HruaitutePageProps {
   currentUser: Member | null;
   onOpenLogin: () => void;
   onDataChanged: () => void;
+  dataVersion?: number;
 }
 
 export const HruaitutePage: React.FC<HruaitutePageProps> = ({
