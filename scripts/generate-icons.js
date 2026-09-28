@@ -1,0 +1,137 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import sharp from 'sharp';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const publicDir = path.resolve(__dirname, '../public');
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+
+// SVG with modern KPG typography, golden cross, and royal blue backdrop
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="royalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A" />
+      <stop offset="50%" stop-color="#1E40AF" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background with subtle rounded corners -->
+  <rect width="512" height="512" rx="110" fill="url(#royalGrad)" />
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-opacity="0.4" />
+
+  <!-- Subtle Cross Ray burst in background -->
+  <g opacity="0.12">
+    <circle cx="256" cy="220" r="140" fill="none" stroke="#F59E0B" stroke-width="2" stroke-dasharray="8 8" />
+    <line x1="256" y1="60" x2="256" y2="380" stroke="#FFFFFF" stroke-width="1.5" />
+    <line x1="110" y1="220" x2="402" y2="220" stroke="#FFFFFF" stroke-width="1.5" />
+  </g>
+
+  <!-- Golden Central Cross -->
+  <g transform="translate(256, 175)">
+    <!-- Vertical beam -->
+    <rect x="-8" y="-70" width="16" height="96" rx="4" fill="url(#goldGrad)" />
+    <!-- Horizontal beam -->
+    <rect x="-34" y="-46" width="68" height="15" rx="4" fill="url(#goldGrad)" />
+    <!-- Radiant light point -->
+    <circle cx="0" cy="-38.5" r="5" fill="#FFFBEB" filter="url(#softGlow)" />
+  </g>
+
+  <!-- Main KPG Monogram -->
+  <text x="256" y="325" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="88" 
+        font-weight="900" 
+        letter-spacing="5" 
+        fill="#FFFFFF">
+    KPG
+  </text>
+
+  <!-- Subtitle banner -->
+  <rect x="136" y="356" width="240" height="30" rx="15" fill="#1E40AF" stroke="#F59E0B" stroke-width="1.5" stroke-opacity="0.7" />
+  <text x="256" y="376" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="13" 
+        font-weight="700" 
+        letter-spacing="3" 
+        fill="#FDE68A">
+    DARLAWN BRANCH
+  </text>
+
+  <!-- Year / Tagline -->
+  <text x="256" y="416" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="12" 
+        font-weight="600" 
+        letter-spacing="2" 
+        fill="#93C5FD">
+    YOUNG CHRISTIAN YOUTH • 2026
+  </text>
+</svg>`;
+
+async function run() {
+  fs.writeFileSync(path.join(publicDir, 'icon.svg'), svgContent);
+  console.log('Saved public/icon.svg');
+
+  const svgBuffer = Buffer.from(svgContent);
+
+  // 192x192
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-192x192.png'));
+  console.log('Saved public/pwa-192x192.png');
+
+  // 512x512
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-512x512.png'));
+  console.log('Saved public/pwa-512x512.png');
+
+  // Apple touch icon 180x180
+  await sharp(svgBuffer)
+    .resize(180, 180)
+    .png()
+    .toFile(path.join(publicDir, 'apple-touch-icon.png'));
+  console.log('Saved public/apple-touch-icon.png');
+
+  // Maskable icon 512x512 (with safe-zone 15% padding)
+  const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+    <rect width="512" height="512" fill="#1E3A8A" />
+    <g transform="translate(64, 64) scale(0.75)">
+      ${svgContent.replace(/<\/?svg[^>]*>/g, '')}
+    </g>
+  </svg>`;
+  await sharp(Buffer.from(maskableSvg))
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-maskable-512x512.png'));
+  console.log('Saved public/pwa-maskable-512x512.png');
+
+  // Also create favicon
+  await sharp(svgBuffer)
+    .resize(64, 64)
+    .png()
+    .toFile(path.join(publicDir, 'favicon.png'));
+  console.log('Icons generated successfully!');
+}
+
+run().catch(console.error);
