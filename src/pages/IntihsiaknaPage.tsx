@@ -810,14 +810,14 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               </div>
 
               {/* Chat Message History */}
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                 {chatMessages.map((msg, mIdx) => (
                   <div
                     key={mIdx}
                     className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed shadow-xs ${
+                      className={`max-w-[95%] rounded-2xl p-4 text-sm leading-relaxed shadow-xs ${
                         msg.role === 'user'
                           ? 'bg-indigo-600 text-white rounded-br-xs font-medium'
                           : 'bg-slate-900 border border-indigo-500/30 text-indigo-100 rounded-bl-xs'
@@ -827,38 +827,38 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
                       {/* Action Execution Button if model returned an action */}
                       {msg.actionData && msg.actionType && (
-                        <div className="mt-3 pt-3 border-t border-indigo-500/20 space-y-2">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300 uppercase">
-                            <Award className="w-3.5 h-3.5" />
+                        <div className="mt-4 pt-4 border-t border-indigo-500/20 space-y-3">
+                          <div className="flex items-center gap-2 text-[11px] font-bold text-amber-300 uppercase">
+                            <Award className="w-4 h-4" />
                             <span>Action Ready: {msg.actionData.title || 'Competition Update'}</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleExecuteAiAction(msg.actionType!, msg.actionData)}
-                            className="cursor-pointer w-full flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2 text-xs font-black text-white transition shadow"
+                            className="cursor-pointer w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-3 text-sm font-black text-white transition shadow"
                           >
                             <span>Apply Changes to App</span>
                           </button>
                         </div>
                       )}
                     </div>
-                    <span className="text-[9px] text-slate-500 px-1 pt-0.5">
+                    <span className="text-[10px] text-slate-500 px-2 pt-1">
                       {msg.role === 'user' ? 'You' : 'Karmel AI'}
                     </span>
                   </div>
                 ))}
                 {isChatSending && (
-                  <div className="flex items-center gap-2 text-xs text-indigo-300 bg-slate-900/60 p-3 rounded-2xl w-fit border border-indigo-500/20">
-                    <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    <span>Karmel AI is thinking & reasoning...</span>
+                  <div className="flex items-center gap-3 text-sm text-indigo-300 bg-slate-900/60 p-4 rounded-2xl w-fit border border-indigo-500/20">
+                    <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Karmel AI is thinking...</span>
                   </div>
                 )}
               </div>
 
               {/* Chat Input Box */}
-              <div className="flex items-center gap-2 pt-1 border-t border-indigo-500/25">
-                <input
-                  type="text"
+              <div className="flex flex-col gap-3 pt-3 border-t border-indigo-500/25">
+                <textarea
+                  rows={3}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -868,15 +868,15 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                     }
                   }}
                   placeholder="Ask AI to add questions, change timer, or create a quiz..."
-                  className="flex-1 rounded-xl border border-indigo-500/30 bg-slate-950 p-3 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+                  className="w-full rounded-xl border border-indigo-500/30 bg-slate-950 p-4 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
                 />
                 <button
                   type="button"
                   disabled={isChatSending || !chatInput.trim()}
                   onClick={handleSendChatMessage}
-                  className="cursor-pointer rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white hover:bg-indigo-500 transition disabled:opacity-50 shrink-0"
+                  className="cursor-pointer rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-500 transition disabled:opacity-50 self-end"
                 >
-                  Send
+                  Send Message
                 </button>
               </div>
             </div>

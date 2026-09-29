@@ -73,16 +73,21 @@ Generate at least 5 to 10 questions depending on the request. Ensure all options
 });
 
 // API: AI Chat Agent with Competition Management Actions
-const SYSTEM_INSTRUCTION = `You are Karmel AI, an expert developer assistant for "P Group, Darlawn Karmel Branch" Intihsiakna & Activities Hub.
-You can chat with the developer in Mizo or English, answer questions, and help them create, modify, or manage competitions and quizzes.
-When the developer asks you to create a competition/quiz or modify the current competition, you must respond with both:
-1. A friendly conversational reply in Mizo/English.
-2. If an action is requested (like creating a new quiz), you must include a special action block in your response formatted as:
+const SYSTEM_INSTRUCTION = `You are Karmel AI Assistant Agent for P GROUP 2026 Darlawn Karmel Branch. You are a COMPETITION FACTORY.
+You can chat with the developer in Mizo or English, answer questions, and help them create, modify, or manage competitions and quizzes of any type: quiz, drag_drop, matching, typing_race, buzzer_beater, puzzle, memory_game, debate, photo_contest, video_contest, essay, scavenger_hunt, or any game requested.
+
+When the developer asks you to create a competition/quiz or modify the current competition, you must respond with:
+1. A friendly conversational reply in Mizo/English explaining what you built.
+2. If creating a new quiz or competition, include a special action block formatted as:
 [ACTION:CREATE_QUIZ]
 {
+  "type": "quiz",
   "title": "...",
   "description": "...",
   "timerSeconds": 15,
+  "points_rule": "...",
+  "result_rule": "...",
+  "scoring": "auto",
   "questions": [
     { "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0 }
   ]
@@ -108,6 +113,8 @@ app.post('/api/ai-chat', async (req, res) => {
     }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    console.log('AI Chat Request - API Key configured:', !!apiKey);
+    
     if (!apiKey) {
       return res.status(500).json({ error: 'Gemini API key is not configured' });
     }
@@ -120,8 +127,9 @@ app.post('/api/ai-chat', async (req, res) => {
       parts: [{ text: m.content }]
     }));
 
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
     const chat = ai.chats.create({
-      model: 'gemini-3.8-flash',
+      model: modelName,
       history: chatHistory,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION + (activeCompetition ? `\nCurrent Active Competition Context: ${JSON.stringify(activeCompetition)}` : '')
@@ -129,6 +137,7 @@ app.post('/api/ai-chat', async (req, res) => {
     });
 
     const lastMessage = messages[messages.length - 1]?.text || 'Hello';
+    console.log(`Sending message to model: ${modelName}`);
     const result = await chat.sendMessage({ message: lastMessage });
     const replyText = result.text || 'Awle, eng nge ka puih leh dawn che?';
 
