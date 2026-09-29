@@ -4,7 +4,7 @@ export type UserRole =
   | 'ASST_LEADER'
   | 'ASST_SECRETARY'
   | 'TREASURER'
-  | 'FINANCE_SECRETARY' // Asst. Treasurer
+  | 'FINANCE_SECRETARY' // Finance Treasurer
   | 'COMMITTEE_OB'
   | 'MEMBER';
 
@@ -14,7 +14,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   ASST_LEADER: 'Asst. Leader',
   ASST_SECRETARY: 'Asst. Secretary',
   TREASURER: 'Treasurer',
-  FINANCE_SECRETARY: 'Asst. Treasurer',
+  FINANCE_SECRETARY: 'Finance Treasurer',
   COMMITTEE_OB: 'Committee Member',
   MEMBER: 'Member',
 };
@@ -109,6 +109,16 @@ export interface Member {
   email?: string;
   joinedDate?: string;
   avatarUrl?: string;
+  photoUrl?: string;
+}
+
+export interface GroupMember {
+  id: string;
+  hming: string;    // Name
+  phone: string;    // Phone
+  address: string;  // Address / Veng
+  createdAt?: string;
+  addedBy?: string;
 }
 
 export interface ExOfficio {
@@ -140,6 +150,14 @@ export interface Competition {
   createdBy: string;
   createdAt: string;
   status: 'Active' | 'Closed';
+  quizData?: {
+    timerSeconds?: number;
+    questions: {
+      question: string;
+      options: string[];
+      correctAnswer: number; // index of correct option
+    }[];
+  };
 }
 
 export interface Submission {

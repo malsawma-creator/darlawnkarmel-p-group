@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Member, CommitteeMeeting, ExOfficio, isOBRole, isSecretaryRole, ROLE_ORDER, ROLE_LABELS, isDeveloperUser, UserRole } from '../types';
 import { Storage } from '../utils/storage';
+import { MemberAvatar } from '../components/MemberAvatar';
+import { AvatarPreviewModal, AvatarPreviewData } from '../components/AvatarPreviewModal';
 import {
   Crown,
   Video,
@@ -56,7 +58,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
   const [meetLocation, setMeetLocation] = useState('Secretary In (Darlawn Vengpui)');
   const [meetUrl, setMeetUrl] = useState('https://meet.google.com/kpg-darl-awn');
   const [meetDateTime, setMeetDateTime] = useState('');
-  const [meetAgenda, setMeetAgenda] = useState('1. Branch hmalakna thlirletna\n2. Budget & Sum dinhmun\n3. Programme thar buatsaih');
+  const [meetAgenda, setMeetAgenda] = useState('1. Group hmalakna thlirletna\n2. Budget & Sum dinhmun\n3. Programme thar buatsaih');
   const [copiedMeetingId, setCopiedMeetingId] = useState<string | null>(null);
 
   // Agenda Submission states (OBs Only)
@@ -64,6 +66,9 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [agendaTopic, setAgendaTopic] = useState('');
   const [agendaDesc, setAgendaDesc] = useState('');
+
+  // Avatar Preview Modal state
+  const [previewAvatar, setPreviewAvatar] = useState<AvatarPreviewData | null>(null);
 
   // Ex-Officio Modal states
   const [showAddExOfficioModal, setShowAddExOfficioModal] = useState(false);
@@ -248,7 +253,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
         meeting.agendaItems.map((a, i) => `${i + 1}. ${a.topic} [${a.proposedBy} - ${a.proposedByRole}]`).join('\n');
     }
 
-    const text = `📢 *KPG DARLAWN BRANCH OB COMMITTEE MEETING*\n\n📌 *Thupui:* ${meeting.title}\n📅 *Hunchhung:* ${formattedDate}\n📍 *Hmun (Place):* ${meeting.location || 'Secretary In / Google Meet'}\n\n📝 *Agenda:*\n${agendaContent}\n\n🎥 *Video Meeting Link (OB Access Only):*\n${meeting.meetUrl}\n\n(Hruaitute kim taka tel turin kan inngen a ni e)`;
+    const text = `📢 *KPG DARLAWN KARMEL BRANCH OB COMMITTEE MEETING*\n\n📌 *Thupui:* ${meeting.title}\n📅 *Hunchhung:* ${formattedDate}\n📍 *Hmun (Place):* ${meeting.location || 'Secretary In / Google Meet'}\n\n📝 *Agenda:*\n${agendaContent}\n\n🎥 *Video Meeting Link (OB Access Only):*\n${meeting.meetUrl}\n\n(Hruaitute kim taka tel turin kan inngen a ni e)`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
@@ -580,19 +585,32 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
       ) : null}
 
       {/* ========================================================================= */}
-      {/* 1. BRANCH LEADER ON TOP (SPECIAL GOLD ACCENT CARD)                       */}
+      {/* 1. GROUP LEADER ON TOP (SPECIAL GOLD ACCENT CARD)                       */}
       {/* ========================================================================= */}
       {leader && (
         <div className="relative overflow-hidden rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-50/60 via-white to-amber-50/30 p-5 sm:p-6 shadow-sm">
           <div className="absolute top-0 right-0 rounded-bl-xl bg-amber-500 px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-xs">
-            👑 Branch Leader
+            👑 Group Leader
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500 text-2xl font-black text-slate-950 shadow-md">
-                {leader.hming.charAt(0)}
-                <div className="absolute -top-2 -right-2 rounded-full bg-slate-900 p-1 text-amber-400">
+              <div className="relative">
+                <MemberAvatar
+                  name={leader.hming}
+                  photoUrl={leader.photoUrl || leader.avatarUrl}
+                  size={60}
+                  onClick={() =>
+                    setPreviewAvatar({
+                      name: leader.hming,
+                      photoUrl: leader.photoUrl || leader.avatarUrl,
+                      veng: leader.veng,
+                      role: leader.role,
+                    })
+                  }
+                  className="ring-4 ring-amber-400/50 shadow-lg"
+                />
+                <div className="absolute -top-1.5 -right-1.5 rounded-full bg-slate-900 p-1 text-amber-400 shadow-xs">
                   <Crown className="w-3.5 h-3.5" />
                 </div>
               </div>
@@ -710,11 +728,28 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
                   </div>
                 </div>
 
-                <div className="font-bold text-sm text-slate-900">
-                  {ob.hming}
-                </div>
-                <div className="text-xs text-slate-500 font-mono">
-                  {ob.phone}
+                <div className="flex items-center gap-3">
+                  <MemberAvatar
+                    name={ob.hming}
+                    photoUrl={ob.photoUrl || ob.avatarUrl}
+                    size={40}
+                    onClick={() =>
+                      setPreviewAvatar({
+                        name: ob.hming,
+                        photoUrl: ob.photoUrl || ob.avatarUrl,
+                        veng: ob.veng,
+                        role: ob.role,
+                      })
+                    }
+                  />
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-slate-900 truncate">
+                      {ob.hming}
+                    </div>
+                    <div className="text-xs text-slate-500 font-mono">
+                      {ob.phone}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -913,7 +948,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
                   required
                   value={meetAgenda}
                   onChange={(e) => setMeetAgenda(e.target.value)}
-                  placeholder="1. Branch inkhawm chungchang&#10;2. Sum dinhmun thlirletna&#10;3. Youth camping buatsaih dan..."
+                  placeholder="1. Group inkhawm chungchang&#10;2. Sum dinhmun thlirletna&#10;3. Youth camping buatsaih dan..."
                   className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
                 />
               </div>
@@ -1080,7 +1115,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
                   <option value="SECRETARY">Secretary</option>
                   <option value="ASST_SECRETARY">Asst. Secretary</option>
                   <option value="TREASURER">Treasurer</option>
-                  <option value="FINANCE_SECRETARY">Asst. Treasurer</option>
+                  <option value="FINANCE_SECRETARY">Finance Treasurer</option>
                   <option value="COMMITTEE_OB">Committee Member</option>
                   <option value="MEMBER">Member (Normal)</option>
                 </select>
@@ -1235,6 +1270,13 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full-Screen Avatar Preview Modal */}
+      <AvatarPreviewModal
+        isOpen={Boolean(previewAvatar)}
+        onClose={() => setPreviewAvatar(null)}
+        data={previewAvatar}
+      />
     </div>
   );
 };

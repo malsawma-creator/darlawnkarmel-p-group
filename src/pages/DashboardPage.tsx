@@ -20,9 +20,11 @@ import {
   ExternalLink,
   ChevronRight,
   Maximize2,
+  Camera,
 } from 'lucide-react';
 import { TabType } from '../components/BottomNav';
 import { PhotoLightbox, LightboxPhoto } from '../components/PhotoLightbox';
+import { MemberAvatar } from '../components/MemberAvatar';
 
 interface DashboardPageProps {
   currentUser: Member | null;
@@ -52,10 +54,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   // Feed Filter state
   const [feedFilter, setFeedFilter] = useState<'all' | 'notices' | 'photos' | 'info'>('all');
 
+  // Custom Banner State
+  const [bannerBg, setBannerBg] = useState<string | null>(Storage.getCustomBannerBg());
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        Storage.setCustomBannerBg(result);
+        setBannerBg(result);
+        onDataChanged();
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Photo Lightbox state
   const [lightboxPhotos, setLightboxPhotos] = useState<LightboxPhoto[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
+
+  // Group Photo Banner state (Option 1)
+  const [showGroupPhoto, setShowGroupPhoto] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('kpg_hide_group_photo') !== 'true';
+    } catch {
+      return true;
+    }
+  });
 
   // Edit / Add Record Modal state
   const [editingRecord, setEditingRecord] = useState<CommitteeRecord | null>(null);
@@ -130,7 +161,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
             {/* Profile greeting on home - User name only, NO Secretary tag or Super Admin */}
             {currentUser && (
-              <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1 text-xs text-white backdrop-blur-xs border border-white/10">
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 pl-1.5 pr-3.5 py-1 text-xs text-white backdrop-blur-xs border border-white/15 shadow-xs">
+                <MemberAvatar
+                  name={currentUser.hming}
+                  photoUrl={currentUser.photoUrl || currentUser.avatarUrl}
+                  size={26}
+                  showShadow={false}
+                />
                 <span>Chibai, <strong>{currentUser.hming}</strong></span>
               </div>
             )}
@@ -435,206 +472,120 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       })()}
 
       {/* Separation divider between feed and finance card */}
-      <div className="my-8 border-t border-slate-200" />
+      <div className="my-4 border-t border-slate-200" />
 
       {/* ========================================================================= */}
-      {/* 2. ONE SUM BAWM GREEN CARD (Balance, Progress %, Total)                    */}
+      {/* 2. ONE SUM BAWM GREEN CARD (Balance, Progress %, Total) - 40% More Compact */}
       {/* ========================================================================= */}
       <div
         onClick={() => onNavigate('finance')}
-        className="cursor-pointer group rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/70 p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-emerald-400 transition"
+        className="cursor-pointer group rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/50 via-white to-emerald-50/40 p-3 shadow-2xs hover:shadow-xs hover:border-emerald-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 pb-3.5 mb-3.5">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-emerald-600 text-white shadow-xs">
-              <Wallet className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-950">
-                  SUM BAWM (Kum 2026 Intiam Budget)
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  {finSummary.percentCollected}% Collected
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Faith Promise tlingkhawm leh Branch sum dinhmun
-              </p>
-            </div>
+        {/* Left part: Title & Current Balance */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="p-1.5 rounded-lg bg-emerald-600 text-white shadow-2xs">
+            <Wallet className="w-4 h-4" />
           </div>
-
-          <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 group-hover:text-emerald-900 transition">
-            <span>View Full Finance Details</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
-          </div>
-        </div>
-
-        {/* Balance Display */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-          <div className="sm:col-span-1">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Current Balance
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-950 leading-none">
+              SUM BAWM (Kum 2026 Intiam Budget)
             </div>
-            <div className="text-3xl sm:text-4xl font-black text-emerald-800 font-mono tracking-tight mt-0.5">
+            <div className="text-lg font-black text-emerald-800 font-mono tracking-tight mt-0.5 leading-none">
               ₹{finSummary.currentBalance.toLocaleString()}
             </div>
           </div>
+        </div>
 
-          <div className="sm:col-span-2 space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-slate-700">
-                Hmuh tawh zat: <strong className="text-emerald-700 font-bold">₹{finSummary.totalCollected.toLocaleString()}</strong>
-              </span>
-              <span className="text-slate-500 font-mono">
-                Target: ₹{finSummary.totalPromised.toLocaleString()}
-              </span>
-            </div>
+        {/* Right part: Progress Bar, Target & Progress details in one row */}
+        <div className="flex-1 w-full max-w-xl flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 justify-end text-[11px] font-semibold">
+          <div className="text-slate-600 shrink-0 font-medium leading-none text-right">
+            Hmuh tawh: <strong className="text-emerald-700 font-black">₹{finSummary.totalCollected.toLocaleString()}</strong> <span className="text-slate-300">/</span> <span className="text-slate-500 font-mono">Target: ₹{finSummary.totalPromised.toLocaleString()}</span>
+          </div>
 
-            {/* Progress bar */}
-            <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden border border-emerald-100">
+          <div className="flex items-center gap-2 flex-1 min-w-[120px]">
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden border border-emerald-100/50">
               <div
                 className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, finSummary.percentCollected)}%` }}
               />
             </div>
-
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>La hmuh hmabak: ₹{finSummary.totalPending.toLocaleString()}</span>
-              <span>Expenses: ₹{finSummary.totalExpenses.toLocaleString()}</span>
-            </div>
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100 font-mono shrink-0 leading-none">
+              {finSummary.percentCollected}%
+            </span>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. MEMBERS COUNT CARDS                                                    */}
+      {/* 3. MEMBERS DIRECTORY CARD (Compact Smaller Height Banner style)           */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {/* Total Members */}
-        <div
-          onClick={() => onNavigate('members')}
-          className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm transition hover:border-blue-300 hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-blue-50 p-2 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition">
-              <Users className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">
-              Directory
-            </span>
+      <div
+        onClick={() => onNavigate('members')}
+        className="group cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-2xs transition hover:border-blue-300 hover:shadow-xs flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-blue-50 p-2 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition">
+            <Users className="w-4 h-4" />
           </div>
-          <div className="mt-2.5">
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
-              {members.length}
-            </div>
-            <div className="text-xs font-bold text-slate-500 mt-0.5">Total Members</div>
+          <div>
+            <div className="text-xs font-black text-slate-800 leading-tight">Members Directory</div>
+            <div className="text-[10px] text-slate-500 leading-none mt-0.5">Darlawn Karmel Branch P Group Members List</div>
           </div>
         </div>
-
-        {/* Total Office Bearers */}
-        <div
-          onClick={() => onNavigate('hruaitute')}
-          className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm transition hover:border-amber-300 hover:shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-amber-50 p-2 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition">
-              <Award className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-              OB Committee
-            </span>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-2xl sm:text-3xl font-black text-amber-700 font-mono">
-              {obs.length}
-            </div>
-            <div className="text-xs font-bold text-slate-500 mt-0.5">Office Bearers</div>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2.5 py-0.5 rounded-full font-mono border border-blue-100">
+            {members.length} Members
+          </span>
+          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition" />
         </div>
       </div>
 
-
-
       {/* ========================================================================= */}
-      {/* 4. UPCOMING MEETING                                                        */}
+      {/* 4. UPCOMING MEETING (Compact Single-Row style)                           */}
       {/* ========================================================================= */}
       {upcomingMeeting ? (
         <div
-          onClick={() => onNavigate('hruaitute')}
-          className="cursor-pointer rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/80 via-white to-blue-50/50 p-5 shadow-xs hover:border-blue-300 hover:shadow-sm transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          onClick={() => onNavigate('members')}
+          className="cursor-pointer rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50/40 via-white to-blue-50/20 px-3.5 py-2.5 shadow-2xs hover:border-blue-300 transition flex items-center justify-between gap-3 text-xs"
         >
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-700 text-white shadow-xs shrink-0 mt-0.5">
-              <Video className="w-5 h-5" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white shrink-0 shadow-2xs">
+              <Calendar className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                  Upcoming OB Committee
-                </span>
-                <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  {new Date(upcomingMeeting.dateTime).toLocaleDateString([], {
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                  ,{' '}
-                  {new Date(upcomingMeeting.dateTime).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </div>
-              <div className="text-sm font-bold text-slate-900 mt-1">
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 leading-none truncate">
                 {upcomingMeeting.title}
               </div>
-              {upcomingMeeting.location && (
-                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3 h-3 text-slate-400" />
-                  <span>{upcomingMeeting.location}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 self-start sm:self-auto">
-            <span>View Meeting & Agenda</span>
-            <ArrowRight className="w-4 h-4" />
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4.5 shadow-xs flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-slate-100 text-slate-500">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-900">Upcoming Meeting</div>
-              <div className="text-[11px] text-slate-500">
-                Tun dinhmunah Committee meeting ruahman thar a la awm lo.
+              <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+                {new Date(upcomingMeeting.dateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(upcomingMeeting.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {upcomingMeeting.location && ` • Location: ${upcomingMeeting.location}`}
               </div>
             </div>
           </div>
-          {canEdit && (
-            <button
-              onClick={() => onNavigate('hruaitute')}
-              className="text-xs font-bold text-blue-700 hover:underline"
-            >
-              Call Meeting →
-            </button>
-          )}
+          <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-2xs flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-400 shrink-0">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-800 leading-none">Upcoming Meeting</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">Tun dinhmunah Committee meeting thar a awm rih lo.</div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 5. RECENT RECORDS (With Edit & Delete Buttons for OB/Developer)            */}
+      {/* 5. RECENT RECORDS (Compact minutes list with less padding)                 */}
       {/* ========================================================================= */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1 pb-1">
+          <div className="flex items-center gap-1.5">
             <FileText className="w-4 h-4 text-blue-700" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
               Recent Records & Minutes
             </h2>
           </div>
@@ -649,64 +600,63 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   setRecordContent('');
                   setShowAddRecordModal(true);
                 }}
-                className="text-xs font-bold text-white bg-blue-700 hover:bg-blue-600 px-2.5 py-1 rounded-lg transition inline-flex items-center gap-1 shadow-2xs"
+                className="text-[10px] font-black text-white bg-blue-700 hover:bg-blue-600 px-2 py-0.5 rounded transition inline-flex items-center gap-0.5 shadow-2xs"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 <span>Add Record</span>
               </button>
             )}
 
             <button
               onClick={() => onNavigate('records')}
-              className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
+              className="text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-0.5"
             >
               <span>View All</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         </div>
 
         {records.length === 0 ? (
-          <div className="py-8 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-400">
+          <div className="py-6 text-center bg-white rounded-xl border border-slate-200 text-xs text-slate-400">
             Records ziah luh a la awm lo.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {records.slice(0, 3).map((rec) => (
               <div
                 key={rec.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm hover:shadow transition space-y-2.5"
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs hover:shadow-xs transition space-y-1.5"
               >
-                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-1">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">{rec.title}</h3>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      {rec.date} • Recorded by: <strong className="text-slate-700">{rec.recordedBy}</strong>
+                    <h3 className="text-xs font-bold text-slate-900">{rec.title}</h3>
+                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      {rec.date} • Recorded by: <strong className="text-slate-600">{rec.recordedBy}</strong>
                     </div>
                   </div>
 
-                  {/* EDIT & DELETE BUTTONS - Visible ONLY to OBs and Developer */}
                   {canEdit && (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => handleOpenEditRecord(rec)}
-                        className="rounded-lg p-1.5 text-slate-500 hover:bg-blue-50 hover:text-blue-700 transition"
+                        className="rounded p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-700 transition"
                         title="Edit Record"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleDeleteRecord(rec.id, rec.title)}
-                        className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
+                        className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                         title="Delete Record"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   )}
                 </div>
 
-                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed line-clamp-3">
                   {rec.content}
                 </p>
               </div>
@@ -716,8 +666,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* Footer Branding */}
-      <div className="pt-6 pb-2 text-center">
-        <p className="text-[11px] text-slate-400 font-medium">
+      <div className="pt-4 pb-2 text-center">
+        <p className="text-[10px] text-slate-400 font-semibold">
           © 2026 P Group, Darlawn Karmel Branch
         </p>
       </div>

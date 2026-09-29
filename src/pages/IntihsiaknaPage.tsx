@@ -84,6 +84,197 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   const activeComp = competitions.find((c) => c.id === selectedCompId) || competitions[0];
   const submissions = activeComp ? Storage.getSubmissions(activeComp.id) : [];
 
+  // --- KARMEL AI CHAT AGENT STATES ---
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'model'; text: string; actionData?: any; actionType?: string }>>([
+    {
+      role: 'model',
+      text: 'Chibai! Kei hi Karmel AI ka ni a. Intihsiakna leh Quiz hrang hrang siam tur te, modify tur te, zawhna belh turin min rawn rawh le. Eng nge kan buatsaih dawn tul?'
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatSending, setIsChatSending] = useState(false);
+
+  const handleSendChatMessage = async () => {
+    if (!chatInput.trim() || isChatSending) return;
+    const userMsg = chatInput.trim();
+    setChatInput('');
+    
+    const newMessages = [...chatMessages, { role: 'user' as const, text: userMsg }];
+    setChatMessages(newMessages);
+    setIsChatSending(true);
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.text })),
+          activeCompetition: activeComp || null
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        let replyText = data.reply || '';
+        let extractedActionData = null;
+        let extractedActionType = null;
+
+        const createMatch = replyText.match(/\[ACTION:CREATE_QUIZ\]([\s\S]*?)\[\/ACTION\]/);
+        const updateMatch = replyText.match(/\[ACTION:UPDATE_COMPETITION\]([\s\S]*?)\[\/ACTION\]/);
+
+        if (createMatch) {
+          extractedActionType = 'CREATE_QUIZ';
+          try {
+            extractedActionData = JSON.parse(createMatch[1].trim());
+          } catch {}
+          replyText = replyText.replace(/\[ACTION:CREATE_QUIZ\][\s\S]*?\[\/ACTION\]/, '').trim();
+        } else if (updateMatch) {
+          extractedActionType = 'UPDATE_COMPETITION';
+          try {
+            extractedActionData = JSON.parse(updateMatch[1].trim());
+          } catch {}
+          replyText = replyText.replace(/\[ACTION:UPDATE_COMPETITION\][\s\S]*?\[\/ACTION\]/, '').trim();
+        }
+
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: 'model',
+            text: replyText,
+            actionData: extractedActionData,
+            actionType: extractedActionType
+          }
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: 'model', text: 'Sorry, I encountered an error: ' + (data.error || 'Unknown error') }
+        ]);
+      }
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'model', text: 'Network connection error: ' + String(err) }
+      ]);
+    } finally {
+      setIsChatSending(false);
+    }
+  };
+
+  const handleExecuteAiAction = (actionType: string, actionData: any) => {
+    if (!actionData) return;
+    if (actionType === 'CREATE_QUIZ') {
+      const newComp = Storage.addCompetition({
+        title: actionData.title || 'AI Chat Quiz',
+        type: 'Quiz',
+        description: actionData.description || 'Created via Karmel AI Agent Chat.',
+        lastDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+        createdBy: `${currentUser?.hming || 'Developer'} (Karmel AI)`,
+      });
+
+      const updatedComp: Competition = {
+        ...newComp,
+        quizData: {
+          timerSeconds: actionData.timerSeconds || 15,
+          questions: actionData.questions || []
+        }
+      };
+      Storage.updateCompetition(updatedComp);
+      alert(`Quiz thar "${actionData.title}" chu AI chat atangin a siam fel a ni e!`);
+      setSelectedCompId(newComp.id);
+      onDataChanged();
+    } else if (actionType === 'UPDATE_COMPETITION' && activeComp) {
+      const updatedComp: Competition = {
+        ...activeComp,
+        title: actionData.title || activeComp.title,
+        description: actionData.description || activeComp.description,
+        quizData: {
+          timerSeconds: actionData.timerSeconds || activeComp.quizData?.timerSeconds || 15,
+          questions: actionData.questions || activeComp.quizData?.questions || []
+        }
+      };
+      Storage.updateCompetition(updatedComp);
+      alert(`Competition "${updatedComp.title}" chu AI chat atangin modification tihtheih a ni e!`);
+      onDataChanged();
+    }
+  };
+
+  // --- ACTIVE QUIZ PLAYING STATES ---
+  const [activeQuiz, setActiveQuiz] = useState<Competition | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizTimer, setQuizTimer] = useState(15);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
+  const [showQuizResult, setShowQuizResult] = useState(false);
+
+  const handleStartQuiz = (comp: Competition) => {
+    if (!comp.quizData || comp.quizData.questions.length === 0) return;
+    setActiveQuiz(comp);
+    setCurrentQuestionIndex(0);
+    setQuizScore(0);
+    setSelectedOptionIndex(null);
+    setShowQuizResult(false);
+    setQuizTimer(comp.quizData.timerSeconds || 15);
+  };
+
+  const handleNextQuestion = (chosenIdx: number | null) => {
+    if (!activeQuiz || !activeQuiz.quizData) return;
+    const currentQ = activeQuiz.quizData.questions[currentQuestionIndex];
+    
+    let isCorrect = false;
+    if (chosenIdx !== null && chosenIdx === currentQ.correctAnswer) {
+      setQuizScore((prev) => prev + 1);
+      isCorrect = true;
+    }
+
+    setSelectedOptionIndex(chosenIdx);
+
+    setTimeout(() => {
+      setSelectedOptionIndex(null);
+      if (currentQuestionIndex + 1 < activeQuiz.quizData!.questions.length) {
+        setCurrentQuestionIndex((prev) => prev + 1);
+        setQuizTimer(activeQuiz.quizData!.timerSeconds || 15);
+      } else {
+        setShowQuizResult(true);
+        try {
+          confetti({ particleCount: 80, spread: 60 });
+        } catch {}
+        
+        if (currentUser) {
+          const finalScoreStr = `${quizScore + (isCorrect ? 1 : 0)} / ${activeQuiz.quizData!.questions.length}`;
+          Storage.addSubmission({
+            competitionId: activeQuiz.id,
+            memberId: currentUser.id,
+            memberHming: currentUser.hming,
+            memberVeng: currentUser.veng,
+            title: `Quiz Score: ${finalScoreStr}`,
+            description: `AI Quiz completed successfully. Checked answers in countdown limit mode.`,
+            fileUrl: '/src/assets/images/banner_bg_1790693520321.jpg',
+            fileType: 'document',
+          });
+          onDataChanged();
+        }
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    let intervalId: any = null;
+    if (activeQuiz && activeQuiz.quizData && activeQuiz.quizData.timerSeconds && !showQuizResult) {
+      intervalId = setInterval(() => {
+        setQuizTimer((prev) => {
+          if (prev <= 1) {
+            handleNextQuestion(null);
+            return activeQuiz.quizData?.timerSeconds || 15;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [activeQuiz, currentQuestionIndex, showQuizResult]);
+
   // Modals for Contests
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -500,7 +691,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                   <span>Create Contest</span>
                 </button>
               )}
-              {activeComp && (
+              {activeComp && activeComp.type !== 'Quiz' && !activeComp.quizData && (
                 <button
                   onClick={() => {
                     if (!currentUser) {
@@ -600,6 +791,97 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       {/* ======================================================== */}
       {mainTab === 'contests' && (
         <div className="space-y-6">
+          {/* DEVELOPER ONLY: KARMEL AI CHAT AGENT PANEL */}
+          {isDeveloperUser(currentUser) && (
+            <div className="rounded-2xl border-2 border-indigo-400 bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 p-4 sm:p-5 text-white shadow-md space-y-4 animate-in slide-in-from-top-3">
+              <div className="flex items-center justify-between border-b border-indigo-500/35 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-amber-400 flex items-center justify-center text-slate-950 font-black shadow-inner">
+                    <Sparkles className="w-5 h-5 text-amber-200" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
+                      <span>Karmel AI Assistant Agent</span>
+                      <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Online</span>
+                    </h3>
+                    <p className="text-[10px] text-indigo-200">Chat with AI to create, modify, or customize quizzes & competitions conversationally</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chat Message History */}
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                {chatMessages.map((msg, mIdx) => (
+                  <div
+                    key={mIdx}
+                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <div
+                      className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed shadow-xs ${
+                        msg.role === 'user'
+                          ? 'bg-indigo-600 text-white rounded-br-xs font-medium'
+                          : 'bg-slate-900 border border-indigo-500/30 text-indigo-100 rounded-bl-xs'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+
+                      {/* Action Execution Button if model returned an action */}
+                      {msg.actionData && msg.actionType && (
+                        <div className="mt-3 pt-3 border-t border-indigo-500/20 space-y-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-300 uppercase">
+                            <Award className="w-3.5 h-3.5" />
+                            <span>Action Ready: {msg.actionData.title || 'Competition Update'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleExecuteAiAction(msg.actionType!, msg.actionData)}
+                            className="cursor-pointer w-full flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2 text-xs font-black text-white transition shadow"
+                          >
+                            <span>Apply Changes to App</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[9px] text-slate-500 px-1 pt-0.5">
+                      {msg.role === 'user' ? 'You' : 'Karmel AI'}
+                    </span>
+                  </div>
+                ))}
+                {isChatSending && (
+                  <div className="flex items-center gap-2 text-xs text-indigo-300 bg-slate-900/60 p-3 rounded-2xl w-fit border border-indigo-500/20">
+                    <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Karmel AI is thinking & reasoning...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input Box */}
+              <div className="flex items-center gap-2 pt-1 border-t border-indigo-500/25">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendChatMessage();
+                    }
+                  }}
+                  placeholder="Ask AI to add questions, change timer, or create a quiz..."
+                  className="flex-1 rounded-xl border border-indigo-500/30 bg-slate-950 p-3 text-xs text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={isChatSending || !chatInput.trim()}
+                  onClick={handleSendChatMessage}
+                  className="cursor-pointer rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white hover:bg-indigo-500 transition disabled:opacity-50 shrink-0"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Competition Selector Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {competitions.map((comp) => {
@@ -668,6 +950,168 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 {activeComp.description}
               </p>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* INTERACTIVE QUIZ BOARD (Option 1)                       */}
+          {/* ======================================================== */}
+          {activeComp && activeComp.quizData && (
+            <div className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-sm space-y-4">
+              {activeQuiz?.id !== activeComp.id ? (
+                /* QUIZ NOT STARTED / ENTRY STATE */
+                <div className="text-center py-6 space-y-3.5">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center mx-auto shadow-xs border border-indigo-100">
+                    <Trophy className="w-8 h-8 text-amber-500 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-black text-slate-900">🎯 Interactive Quiz Board Active</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                      He hmunah hian interactive quiz a awm e. Zawhna <strong>{activeComp.quizData.questions.length}</strong> awm miahin, question tinah <strong>{activeComp.quizData.timerSeconds || 15}s</strong> countdown a awm ang.
+                    </p>
+                  </div>
+
+                  {/* Previous submission score if any */}
+                  {currentUser && submissions.find((s) => s.memberId === currentUser.id) && (
+                    <div className="inline-block bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs px-3.5 py-1.5 rounded-xl font-bold font-sans">
+                      🎉 I score hnuhnung zawk: {submissions.find((s) => s.memberId === currentUser.id)?.title.replace('Quiz Score: ', '')}
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!currentUser) {
+                          onOpenLogin();
+                          return;
+                        }
+                        handleStartQuiz(activeComp);
+                      }}
+                      className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-xs font-black text-white hover:from-indigo-500 hover:to-blue-500 transition shadow-md active:scale-95 select-none"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Start Quiz Challenge</span>
+                    </button>
+                  </div>
+                </div>
+              ) : showQuizResult ? (
+                /* QUIZ FINISHED / RESULTS STATE */
+                <div className="text-center py-8 space-y-4 animate-in zoom-in-95">
+                  <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-300 flex items-center justify-center mx-auto shadow-md">
+                    <Gift className="w-10 h-10 text-amber-500 animate-bounce" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black text-slate-950">Quiz Challenge Zo Ta!</h3>
+                    <p className="text-xs text-slate-500">I hlawhtling taka i chhang zo hi kan lawmpui che e.</p>
+                  </div>
+
+                  <div className="bg-slate-50 max-w-sm mx-auto p-5 rounded-2xl border border-slate-100 space-y-2">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Final Score</span>
+                    <div className="text-3xl font-black text-blue-700 tracking-tight font-sans">
+                      {quizScore} / {activeComp.quizData.questions.length}
+                    </div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      {quizScore === activeComp.quizData.questions.length
+                        ? '💯 Nil bil lo! I chhang sual lo hrim hrim.'
+                        : quizScore >= activeComp.quizData.questions.length / 2
+                        ? '👏 Thra lutuk! Chhanna hlawhtling tak a ni.'
+                        : '👍 I ti tha e! Zirbelh zel rawh le.'}
+                    </p>
+                  </div>
+
+                  {currentUser && (
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      ℹ️ I score hi leaderboards-ah submit fel nghal a ni e.
+                    </p>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveQuiz(null);
+                        setShowQuizResult(false);
+                      }}
+                      className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition"
+                    >
+                      <span>Close & Return</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ACTIVE PLAYING STATE */
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Progress Header */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs">
+                    <span className="font-bold text-slate-500">
+                      Question <strong className="text-indigo-700">{currentQuestionIndex + 1}</strong> of {activeComp.quizData.questions.length}
+                    </span>
+                    <span className="flex items-center gap-1.5 font-bold font-mono text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      ⏱️ {quizTimer}s remaining
+                    </span>
+                  </div>
+
+                  {/* Timer Progress Bar */}
+                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${
+                        quizTimer <= 5 ? 'bg-rose-500' : 'bg-indigo-600'
+                      }`}
+                      style={{ width: `${(quizTimer / (activeComp.quizData.timerSeconds || 15)) * 100}%` }}
+                    />
+                  </div>
+
+                  {/* Question */}
+                  <div className="py-2.5">
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 leading-snug">
+                      {activeComp.quizData.questions[currentQuestionIndex].question}
+                    </h3>
+                  </div>
+
+                  {/* Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5">
+                    {activeComp.quizData.questions[currentQuestionIndex].options.map((opt, oIdx) => {
+                      const isCorrect = oIdx === activeComp.quizData!.questions[currentQuestionIndex].correctAnswer;
+                      const isSelected = oIdx === selectedOptionIndex;
+                      
+                      let btnStyle = "border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 hover:bg-slate-100";
+                      let feedbackIcon = null;
+
+                      if (selectedOptionIndex !== null) {
+                        if (isCorrect) {
+                          btnStyle = "border-emerald-300 bg-emerald-50 text-emerald-900 font-bold scale-[1.01] ring-2 ring-emerald-500/10";
+                          feedbackIcon = "✅";
+                        } else if (isSelected) {
+                          btnStyle = "border-rose-300 bg-rose-50 text-rose-900 font-bold ring-2 ring-rose-500/10";
+                          feedbackIcon = "❌";
+                        } else {
+                          btnStyle = "border-slate-200 bg-slate-50 text-slate-400 opacity-60 pointer-events-none";
+                        }
+                      }
+
+                      return (
+                        <button
+                          key={oIdx}
+                          type="button"
+                          disabled={selectedOptionIndex !== null}
+                          onClick={() => handleNextQuestion(oIdx)}
+                          className={`w-full text-left rounded-xl border p-3.5 text-xs font-bold transition-all flex items-center justify-between cursor-pointer select-none ${btnStyle}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-white border border-slate-300/80 flex items-center justify-center font-mono text-[10px] text-slate-500 shrink-0">
+                              {String.fromCharCode(65 + oIdx)}
+                            </span>
+                            <span>{opt}</span>
+                          </div>
+                          {feedbackIcon && <span className="text-sm shrink-0">{feedbackIcon}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

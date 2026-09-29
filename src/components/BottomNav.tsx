@@ -29,7 +29,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'members', label: 'Members', icon: Users },
-    { id: 'hruaitute', label: 'Hruaitute', icon: Award },
     { id: 'intihsiakna', label: 'Intihsiak', icon: Trophy },
     { id: 'finance', label: 'Finance', icon: Wallet },
     { id: 'records', label: 'Records', icon: FileText },

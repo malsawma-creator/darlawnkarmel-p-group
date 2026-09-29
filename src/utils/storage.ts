@@ -13,6 +13,7 @@ import {
   PaymentTransaction,
   ExpenseRecord,
   ExOfficio,
+  GroupMember,
   UserRole,
   MemberStatus,
   HlaItem,
@@ -47,7 +48,9 @@ const STORAGE_KEYS = {
   EX_OFFICIO: 'kpg_ex_officio_v4',
   HLA_BAWM: 'kpg_hla_bawm_v4',
   BOOK_CHALLENGE: 'kpg_book_challenge_v4',
+  GROUP_MEMBER_LIST: 'kpg_group_member_list_v4',
   INITIALIZED: 'kpg_initialized_v4',
+  CUSTOM_BANNER_BG: 'kpg_custom_banner_bg_v4',
 };
 
 const INITIAL_MEMBERS: Member[] = [
@@ -86,6 +89,8 @@ const INITIAL_EX_OFFICIO: ExOfficio[] = [];
 
 const INITIAL_SUGGESTIONS: Suggestion[] = [];
 
+const INITIAL_GROUP_MEMBERS: GroupMember[] = [];
+
 export const Storage = {
   init() {
     if (!localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
@@ -103,6 +108,7 @@ export const Storage = {
       safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(INITIAL_EX_OFFICIO));
       safeSetItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify([]));
       safeSetItem(STORAGE_KEYS.BOOK_CHALLENGE, JSON.stringify([DEFAULT_BOOK_CHALLENGE_CONFIG]));
+      safeSetItem(STORAGE_KEYS.GROUP_MEMBER_LIST, JSON.stringify([]));
       safeSetItem(STORAGE_KEYS.INITIALIZED, 'true');
     }
 
@@ -843,6 +849,66 @@ export const Storage = {
     return updated;
   },
 
+  // ---------------- GROUP MEMBER LIST (SEPARATE COLLECTION) ----------------
+  getGroupMembers(): GroupMember[] {
+    this.init();
+    const str = localStorage.getItem(STORAGE_KEYS.GROUP_MEMBER_LIST);
+    if (!str) return [];
+    try {
+      const parsed = JSON.parse(str);
+      if (!Array.isArray(parsed)) return [];
+      // Remove any leftover demo ids gm-1 through gm-5
+      const DEMO_IDS = ['gm-1', 'gm-2', 'gm-3', 'gm-4', 'gm-5'];
+      return parsed.filter((m) => !DEMO_IDS.includes(m.id));
+    } catch {
+      return [];
+    }
+  },
+
+  addGroupMember(member: Omit<GroupMember, 'id' | 'createdAt'>): GroupMember {
+    const list = this.getGroupMembers();
+    const newMember: GroupMember = {
+      ...member,
+      id: `gm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString(),
+    };
+    list.unshift(newMember);
+    safeSetItem(STORAGE_KEYS.GROUP_MEMBER_LIST, JSON.stringify(list));
+    addToFirestore(COLLECTIONS.GROUP_MEMBER_LIST, newMember.id, newMember);
+    NotificationService.notifyNewUpdate(`Group Member thar dah a ni`, `${newMember.hming} (${newMember.address})`);
+    return newMember;
+  },
+
+  addGroupMembersBulk(members: Omit<GroupMember, 'id' | 'createdAt'>[]): GroupMember[] {
+    const list = this.getGroupMembers();
+    const created: GroupMember[] = [];
+    members.forEach((m, idx) => {
+      const newMember: GroupMember = {
+        ...m,
+        id: `gm-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
+        createdAt: new Date().toISOString(),
+      };
+      list.unshift(newMember);
+      created.push(newMember);
+      addToFirestore(COLLECTIONS.GROUP_MEMBER_LIST, newMember.id, newMember);
+    });
+    safeSetItem(STORAGE_KEYS.GROUP_MEMBER_LIST, JSON.stringify(list));
+    NotificationService.notifyNewUpdate(`Group Members thar (${created.length}) dah a ni`, `List a in-update e.`);
+    return created;
+  },
+
+  updateGroupMember(member: GroupMember) {
+    const list = this.getGroupMembers().map((m) => (m.id === member.id ? member : m));
+    safeSetItem(STORAGE_KEYS.GROUP_MEMBER_LIST, JSON.stringify(list));
+    updateInFirestore(COLLECTIONS.GROUP_MEMBER_LIST, member.id, member);
+  },
+
+  deleteGroupMember(id: string) {
+    const list = this.getGroupMembers().filter((m) => m.id !== id);
+    safeSetItem(STORAGE_KEYS.GROUP_MEMBER_LIST, JSON.stringify(list));
+    deleteFromFirestore(COLLECTIONS.GROUP_MEMBER_LIST, id);
+  },
+
   // ---------------- SUGGESTIONS ----------------
   getSuggestions(): Suggestion[] {
     this.init();
@@ -935,5 +1001,17 @@ export const Storage = {
     await seedFirestoreCollection(COLLECTIONS.EX_OFFICIO, INITIAL_EX_OFFICIO);
     await markFirestoreInitialized();
     this.init();
+  },
+
+  getCustomBannerBg(): string | null {
+    return localStorage.getItem(STORAGE_KEYS.CUSTOM_BANNER_BG);
+  },
+
+  setCustomBannerBg(base64: string | null) {
+    if (base64) {
+      safeSetItem(STORAGE_KEYS.CUSTOM_BANNER_BG, base64);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CUSTOM_BANNER_BG);
+    }
   },
 };

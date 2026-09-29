@@ -13,7 +13,8 @@
         "dob": { "type": "string" },
         "gender": { "type": "string", "enum": ["Mipa", "Hmeichhia"] },
         "role": { "type": "string" },
-        "status": { "type": "string", "enum": ["Approved", "Pending", "Rejected"] }
+        "status": { "type": "string", "enum": ["Approved", "Pending", "Rejected"] },
+        "photoUrl": { "type": "string" }
       },
       "required": ["id", "hming", "phone", "role", "status"]
     },
@@ -90,6 +91,20 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "title", "targetBooks", "rules", "isActive"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "General group member list record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "hming": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "addedBy": { "type": "string" }
+      },
+      "required": ["id", "hming", "phone", "address"]
     }
   },
   "firestore": {
@@ -116,6 +131,10 @@
     "/book_challenge/{configId}": {
       "schema": "BookChallengeConfig",
       "description": "Dynamic book challenge configuration"
+    },
+    "/group_member_list/{groupMemberId}": {
+      "schema": "GroupMember",
+      "description": "Group member list directory"
     }
   }
 }

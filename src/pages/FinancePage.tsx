@@ -215,7 +215,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   const handlePledgeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pledgeAmount < 100) {
-      alert('Branch inremtihna angin Member budget chu cheng 100 aia tlem a theih loh a ni.');
+      alert('Group inremtihna angin Member budget chu cheng 100 aia tlem a theih loh a ni.');
       return;
     }
 
@@ -301,7 +301,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Sum Dinhmun / Branch Finance 2026
+              Sum Dinhmun / Group Finance 2026
             </h1>
             <p className="text-xs text-slate-500 font-medium">
               Intiam Budget (OBs voluntary & member min. Rs 100), Collections & Expenses
@@ -980,7 +980,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 px-3.5 text-sm font-bold text-slate-900 focus:border-blue-600 focus:outline-none font-mono"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Branch dan: Member budget chu cheng 100 aia tlem loh tur a ni.
+                  Group dan: Member budget chu cheng 100 aia tlem loh tur a ni.
                 </p>
               </div>
 
@@ -1023,7 +1023,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Add Branch Expense</h3>
+                <h3 className="text-base font-bold text-slate-900">Add Group Expense</h3>
                 <p className="text-xs text-slate-500">Sum hmanral chhinchhiahna</p>
               </div>
               <button

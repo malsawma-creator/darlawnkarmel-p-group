@@ -251,7 +251,7 @@ export default function App() {
                 </div>
                 <h2 className="text-xl font-black text-slate-950 tracking-tight">KPG Darlawn</h2>
                 <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  Karmel Branch P Group member management & activity hub ah hian khawngaihin inziaklut/lut hmasa rawh le.
+                  Darlawn Karmel Branch P Group member management & activity hub ah hian khawngaihin inziaklut/lut hmasa rawh le.
                 </p>
               </div>
 

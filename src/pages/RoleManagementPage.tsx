@@ -15,6 +15,10 @@ import {
   PhoneCall,
   Crown,
   AlertTriangle,
+  Download,
+  Upload,
+  Database,
+  Activity,
 } from 'lucide-react';
 
 interface RoleManagementPageProps {
@@ -33,7 +37,7 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
   const isOB = (currentUser && isOBRole(currentUser.role)) || isDev;
   const members = Storage.getMembers();
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'members'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'members' | 'diagnostics'>('pending');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | 'OB' | 'MEMBER'>('ALL');
 
@@ -45,7 +49,7 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
         </div>
         <h2 className="text-xl font-black text-slate-900">OB & Developer Only</h2>
         <p className="text-xs text-slate-600 leading-relaxed">
-          He screen "Manage Members & Roles" hi Branch Office Bearers (OB) leh Developer-te pual chauh a ni.
+          He screen "Manage Members & Roles" hi Group Office Bearers (OB) leh Developer-te pual chauh a ni.
           Member dangte tan luh theih a ni lo.
         </p>
         <button
@@ -111,6 +115,90 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
     }
   };
 
+  const handleMakeExOfficio = (m: Member) => {
+    const designation = window.prompt(
+      `Enter designation for ${m.hming} as Ex-Officio (e.g., Bial Representative, Group Adviser, Kohhran Aiawh):`,
+      'Group Adviser / Representative'
+    );
+    if (designation === null) return; // cancelled
+    
+    const cleanDesignation = designation.trim() || 'Group Adviser';
+    
+    Storage.addExOfficio({
+      hming: m.hming,
+      designation: cleanDesignation,
+      veng: m.veng,
+      phone: m.phone,
+      notes: 'Promoted from Group Members',
+    });
+    
+    alert(`${m.hming} chu Ex-Officio (${cleanDesignation}) ah siam fel a ni e!`);
+    onDataChanged();
+  };
+
+  const handleExportData = () => {
+    try {
+      const backup = {
+        members: Storage.getMembers(),
+        groupMembers: Storage.getGroupMembers(),
+        exOfficios: Storage.getExOfficio(),
+        records: Storage.getRecords(),
+        meetings: Storage.getMeetings(),
+        suggestions: Storage.getSuggestions(),
+        notices: Storage.getNotices(),
+        submissions: Storage.getSubmissions(),
+        bookReviews: Storage.getBookReviews(),
+        expenses: Storage.getExpenses()
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kpg_karmel_group_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Backup failure: ' + String(err));
+    }
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid backup file structure');
+        }
+
+        if (window.confirm('KPG Group Database hmasa zawng zawng ziahlan (overwrite) turin i chiang em? Backup hian thil awmsa zawng zawng a thlak vek dawn a ni.')) {
+          if (data.members) localStorage.setItem('kpg_members_v4', JSON.stringify(data.members));
+          if (data.groupMembers) localStorage.setItem('kpg_group_member_list_v4', JSON.stringify(data.groupMembers));
+          if (data.exOfficios) localStorage.setItem('kpg_ex_officio_v4', JSON.stringify(data.exOfficios));
+          if (data.records) localStorage.setItem('kpg_records_v4', JSON.stringify(data.records));
+          if (data.meetings) localStorage.setItem('kpg_meetings_v4', JSON.stringify(data.meetings));
+          if (data.suggestions) localStorage.setItem('kpg_suggestions_v4', JSON.stringify(data.suggestions));
+          if (data.notices) localStorage.setItem('kpg_notices_v4', JSON.stringify(data.notices));
+          if (data.submissions) localStorage.setItem('kpg_submissions_v4', JSON.stringify(data.submissions));
+          if (data.bookReviews) localStorage.setItem('kpg_book_reviews_v4', JSON.stringify(data.bookReviews));
+          if (data.expenses) localStorage.setItem('kpg_expenses_v4', JSON.stringify(data.expenses));
+
+          alert('Database restored successfully! Loading refreshed app data...');
+          onDataChanged();
+          window.location.reload();
+        }
+      } catch (err) {
+        alert('Restore failed: ' + String(err));
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6 pb-28 animate-in fade-in">
       {/* Header Banner */}
@@ -165,6 +253,18 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
         >
           <Users className="w-4 h-4" />
           <span>All Members & Roles ({approvedMembers.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('diagnostics')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition ${
+            activeTab === 'diagnostics'
+              ? 'bg-indigo-700 text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span>App Diagnostics & Backup</span>
         </button>
       </div>
 
@@ -357,7 +457,7 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
                         <option value="SECRETARY">Secretary</option>
                         <option value="ASST_SECRETARY">Asst. Secretary</option>
                         <option value="TREASURER">Treasurer</option>
-                        <option value="FINANCE_SECRETARY">Asst. Treasurer</option>
+                        <option value="FINANCE_SECRETARY">Finance Treasurer</option>
                         <option value="COMMITTEE_OB">Committee Member</option>
                         <option value="MEMBER">Member (Normal)</option>
                       </select>
@@ -373,12 +473,21 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
                             Remove OB
                           </button>
                         ) : (
-                          <button
-                            onClick={() => handleMakeOB(m.id)}
-                            className="rounded-xl bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-2xs transition"
-                          >
-                            Make OB
-                          </button>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => handleMakeOB(m.id)}
+                              className="rounded-xl bg-amber-500 hover:bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow-2xs transition"
+                            >
+                              Make OB
+                            </button>
+                            <button
+                              onClick={() => handleMakeExOfficio(m)}
+                              className="rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 text-xs font-bold shadow-2xs transition"
+                              title="Siam member hi Ex-Officio-ah (e.g. Group Adviser/Bial Representative)"
+                            >
+                              Make Ex-Officio
+                            </button>
+                          </div>
                         )}
 
                         {/* REMOVE MEMBER BUTTON WITH CONFIRM */}
@@ -396,6 +505,118 @@ export const RoleManagementPage: React.FC<RoleManagementPageProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: DIAGNOSTICS & BACKUP */}
+      {activeTab === 'diagnostics' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Subtitle Info */}
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/55 p-4 text-xs text-indigo-950 flex items-start gap-2.5">
+            <Activity className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-bold text-indigo-900 mb-0.5">Diagnostics & Database Operations</strong>
+              He screen hian i group application darthlalang tlang (status) a tarlang a. Database tlukchhiat thut laka him turin backup i siam thlap thei bawk a ni.
+            </div>
+          </div>
+
+          {/* Grid Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">App Members</span>
+              <div className="text-xl font-black text-slate-900">{members.length}</div>
+              <p className="text-[10px] text-slate-500 font-medium">Inregistered zawng zawng</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Active Approved</span>
+              <div className="text-xl font-black text-emerald-600">{approvedMembers.length}</div>
+              <p className="text-[10px] text-slate-500 font-medium">App lut thei chin</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Pending Approvals</span>
+              <div className={`text-xl font-black ${pendingMembers.length > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-900'}`}>{pendingMembers.length}</div>
+              <p className="text-[10px] text-slate-500 font-medium">Approval nghak mek</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ex-Officio Leaders</span>
+              <div className="text-xl font-black text-slate-900">{Storage.getExOfficio().length}</div>
+              <p className="text-[10px] text-slate-500 font-medium font-sans">Advisor & Representative</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Stored Catalog</span>
+              <div className="text-xl font-black text-slate-900">{Storage.getGroupMembers().length}</div>
+              <p className="text-[10px] text-slate-500 font-medium font-sans">OCR/Offline lists</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Suggestions</span>
+              <div className="text-xl font-black text-slate-900">{Storage.getSuggestions().length}</div>
+              <p className="text-[10px] text-slate-500 font-medium font-sans font-mono">Thurawn thehluh zat</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Committee Records</span>
+              <div className="text-xl font-black text-slate-900">{Storage.getRecords().length}</div>
+              <p className="text-[10px] text-slate-500 font-medium">OB Thurelte zat</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-1.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Contest Uploads</span>
+              <div className="text-xl font-black text-slate-900 text-sans font-mono">
+                {Storage.getSubmissions().length + Storage.getBookReviews().length}
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">Photos & Book reviews</p>
+            </div>
+          </div>
+
+          {/* Backup Maintenance Console Card */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="rounded-xl bg-slate-100 p-2 text-slate-700">
+                <Database className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-950">Database Backup & Recovery Tool</h3>
+                <p className="text-[10px] text-slate-500">Manual database export operation</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              I group data (members list, suggestions box, book reviews, committee meeting minutes) zawng zawng hi rawtthlengna feltak nei a `.json` format-in i backup thei a. Khawvel thila data hloh theih lakah backup hi download hram hram turin kan inngen che u a ni.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
+              <button
+                type="button"
+                onClick={handleExportData}
+                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-xs font-black text-white hover:bg-indigo-600 transition shadow-sm cursor-pointer select-none"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Database Backup (.json)</span>
+              </button>
+
+              <div className="relative flex items-center justify-center">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportData}
+                  className="hidden"
+                  id="import-database-input"
+                />
+                <label
+                  htmlFor="import-database-input"
+                  className="w-full text-center flex items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-300 px-5 py-3 text-xs font-black text-slate-700 hover:bg-slate-200 transition cursor-pointer select-none"
+                >
+                  <Upload className="w-4 h-4 text-slate-500" />
+                  <span>Upload & Restore Backup (.json)</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       )}

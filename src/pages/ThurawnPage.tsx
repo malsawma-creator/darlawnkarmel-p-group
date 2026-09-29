@@ -79,7 +79,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
     e.preventDefault();
     if (!content.trim()) return;
 
-    const senderHming = currentUser?.hming || 'Branch Member';
+    const senderHming = currentUser?.hming || 'Group Member';
 
     Storage.addSuggestion({
       content: content.trim(),
@@ -111,7 +111,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
               Thurawn Bawm / Suggestion Box
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Branch hmasawnna tura rawtna leh thurawn (OBs te chauhin an hmu thei)
+              Group hmasawnna tura rawtna leh thurawn (OBs te chauhin an hmu thei)
             </p>
           </div>
         </div>
@@ -132,7 +132,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-blue-700 flex-shrink-0" />
               <span>
-                OB View: Heng thurawnte hi branch member-te thehluh a ni e ({suggestions.length}).
+                OB View: Heng thurawnte hi group member-te thehluh a ni e ({suggestions.length}).
               </span>
             </div>
           </div>
@@ -245,7 +245,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
             </div>
             <h3 className="text-base font-bold text-slate-900">Thurawn I Nei Em?</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-              Branch hmasawnna tura rawtna leh thurawn i neih chuan a hnuai button hmang hian OB te hnenah thawn rawh le. Hming thup (anonymous)-in a thawn theih bawk e.
+              Group hmasawnna tura rawtna leh thurawn i neih chuan a hnuai button hmang hian OB te hnenah thawn rawh le. Hming thup (anonymous)-in a thawn theih bawk e.
             </p>
             <button
               onClick={() => setShowModal(true)}
@@ -345,7 +345,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
                   rows={4}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="KPG Darlawn branch tana i rawtna..."
+                  placeholder="KPG Darlawn Karmel Branch Group tana i rawtna..."
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 px-3 text-xs text-slate-800 focus:border-blue-600 focus:outline-none"
                 />
               </div>
