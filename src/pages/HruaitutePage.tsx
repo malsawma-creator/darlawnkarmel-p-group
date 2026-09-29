@@ -146,6 +146,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
   };
 
   const handleDeleteMeeting = (id: string, title: string) => {
+    if (!isOB) return;
     if (window.confirm(`Are you sure you want to delete meeting "${title}"?`)) {
       Storage.deleteMeeting(id);
       onDataChanged();
@@ -154,6 +155,7 @@ export const HruaitutePage: React.FC<HruaitutePageProps> = ({
 
   const handleAddExOfficioSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!exoHming.trim()) return;
     Storage.addExOfficio({
       hming: exoHming.trim(),

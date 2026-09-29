@@ -101,6 +101,7 @@ export const MembersPage: React.FC<MembersPageProps> = ({
 
   const handleSaveMember = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!formData.hming.trim()) return;
 
     if (editingMember) {

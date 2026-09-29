@@ -61,6 +61,7 @@ export const COLLECTIONS = {
   EX_OFFICIO: 'ex_officio',
   HLA_BAWM: 'hla_bawm',
   APP_NOTIFICATIONS: 'app_notifications',
+  BOOK_CHALLENGE: 'book_challenge',
 };
 
 // Local storage keys to firestore mapping
@@ -79,6 +80,7 @@ export const STORAGE_TO_FIRESTORE: Record<string, string> = {
   'kpg_ex_officio_v4': COLLECTIONS.EX_OFFICIO,
   'kpg_hla_bawm_v4': COLLECTIONS.HLA_BAWM,
   'kpg_notifications_v1': COLLECTIONS.APP_NOTIFICATIONS,
+  'kpg_book_challenge_v4': COLLECTIONS.BOOK_CHALLENGE,
 };
 
 // Firestore to Local storage keys mapping

@@ -51,6 +51,15 @@ export function isDeveloperUser(user: Member | null | undefined): boolean {
   return user.phone === '9862123456' || user.email === 'jopes500@gmail.com';
 }
 
+/**
+ * Returns true if the user is the Developer or an appointed Office Bearer (OB).
+ * Used to enforce that only Developer & Appointed OB have administrative powers.
+ */
+export function isAppointedOBOrDev(user: Member | null | undefined): boolean {
+  if (!user) return false;
+  return isDeveloperUser(user) || isOBRole(user.role);
+}
+
 export interface PromiseBudget {
   id: string;
   memberId: string;
@@ -195,6 +204,26 @@ export interface BookReview {
   createdAt: string;
   goodReads: string[];
 }
+
+export interface BookChallengeConfig {
+  id: string; // 'current'
+  title: string; // e.g. "5-Book Reading Challenge"
+  targetBooks: number; // e.g. 5, or 3, or 10 - editable by OB
+  rules: string; // e.g. "Reading a book which is not more than 100 pages..."
+  rewardDescription: string; // e.g. "Branch hnen atangin Lawmman tha tak a hlan dawn e"
+  isActive: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export const DEFAULT_BOOK_CHALLENGE_CONFIG: BookChallengeConfig = {
+  id: 'current',
+  title: '5-Book Reading Challenge',
+  targetBooks: 5,
+  rules: 'Kum 2026 chhung hian lehkhabu 5 tal chhiar chhuak la, lehkhabu chhiar thehlut rawh. Lehkhabu phêk 100 aia tam lo pawh chhiar theih a ni.',
+  rewardDescription: 'Branch hnen atangin Lawmman tha tak a hlan dawn e.',
+  isActive: true,
+};
 
 export interface Suggestion {
   id: string;

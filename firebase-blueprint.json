@@ -74,6 +74,22 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "lehkhabuHming", "memberId", "createdAt"]
+    },
+    "BookChallengeConfig": {
+      "title": "BookChallengeConfig",
+      "description": "Configurable book reading competition settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "targetBooks": { "type": "number" },
+        "rules": { "type": "string" },
+        "rewardDescription": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "targetBooks", "rules", "isActive"]
     }
   },
   "firestore": {
@@ -96,6 +112,10 @@
     "/book_reviews/{reviewId}": {
       "schema": "BookReview",
       "description": "Member book reviews"
+    },
+    "/book_challenge/{configId}": {
+      "schema": "BookChallengeConfig",
+      "description": "Dynamic book challenge configuration"
     }
   }
 }

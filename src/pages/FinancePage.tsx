@@ -55,7 +55,9 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   const payments = Storage.getPayments();
   const summary = Storage.getFinanceSummary();
 
-  const isFinManager = (currentUser && isFinanceManager(currentUser.role)) || isDeveloperUser(currentUser);
+  const isOB = (currentUser && isOBRole(currentUser.role)) || isDeveloperUser(currentUser);
+  const isFinManager = isOB;
+  const canManageFinance = isOB;
   const myBudget = currentUser ? budgets.find((b) => b.memberId === currentUser.id) : null;
 
   // Modals & Editing states
@@ -75,6 +77,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   const [editPaymentNotes, setEditPaymentNotes] = useState('');
 
   const handleOpenEditBudget = (b: PromiseBudget) => {
+    if (!canManageFinance) return;
     setEditingBudget(b);
     setEditBudgetAmount(b.promisedAmount);
     setEditBudgetNotes(b.notes || '');
@@ -82,7 +85,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
 
   const handleSaveEditBudget = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBudget) return;
+    if (!canManageFinance || !editingBudget) return;
     Storage.updatePromiseBudget({
       ...editingBudget,
       promisedAmount: Number(editBudgetAmount),
@@ -93,6 +96,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   };
 
   const handleDeleteBudget = (id: string, name: string) => {
+    if (!canManageFinance) return;
     if (window.confirm(`Are you sure you want to delete Promise Budget for "${name}"?`)) {
       Storage.deletePromiseBudget(id);
       onDataChanged();
@@ -100,6 +104,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   };
 
   const handleOpenEditExpense = (exp: ExpenseRecord) => {
+    if (!canManageFinance) return;
     setEditingExpense(exp);
     setExpenseTitle(exp.title);
     setExpenseCategory(exp.category);
@@ -110,6 +115,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   };
 
   const handleDeleteExpense = (id: string, title: string) => {
+    if (!canManageFinance) return;
     if (window.confirm(`Are you sure you want to delete expense "${title}"?`)) {
       Storage.deleteExpense(id);
       onDataChanged();
@@ -117,6 +123,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   };
 
   const handleOpenEditPayment = (p: PaymentTransaction) => {
+    if (!canManageFinance) return;
     setEditingPayment(p);
     setEditPaymentAmount(p.amount);
     setEditPaymentMethod(p.paymentMethod);
@@ -125,7 +132,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
 
   const handleSaveEditPayment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPayment) return;
+    if (!canManageFinance || !editingPayment) return;
     Storage.updatePayment({
       ...editingPayment,
       amount: Number(editPaymentAmount),
@@ -137,6 +144,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
   };
 
   const handleDeletePayment = (id: string, memberHming: string, amount: number) => {
+    if (!canManageFinance) return;
     if (window.confirm(`Are you sure you want to delete payment receipt of ₹${amount} for "${memberHming}"?`)) {
       Storage.deletePayment(id);
       onDataChanged();
@@ -181,6 +189,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
 
   const handleRecordPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageFinance) return;
     if (!selectedBudgetId || paymentAmount <= 0) return;
 
     const targetBudget = budgets.find((b) => b.id === selectedBudgetId);
@@ -231,6 +240,7 @@ export const FinancePage: React.FC<FinancePageProps> = ({
 
   const handleExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageFinance) return;
     if (!expenseTitle.trim() || expenseAmount <= 0) return;
 
     if (editingExpense) {

@@ -48,6 +48,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
   const [isAnonymous, setIsAnonymous] = useState(true);
 
   const handleOpenEditSuggestion = (s: Suggestion) => {
+    if (!isOB) return;
     setEditingSuggestion(s);
     setEditContent(s.content);
     setEditStatus(s.status);
@@ -55,6 +56,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
 
   const handleSaveEditSuggestion = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!editingSuggestion) return;
     Storage.updateSuggestion({
       ...editingSuggestion,
@@ -66,6 +68,7 @@ export const ThurawnPage: React.FC<ThurawnPageProps> = ({
   };
 
   const handleDeleteSuggestion = (id: string) => {
+    if (!isOB) return;
     if (window.confirm('Are you sure you want to delete this suggestion?')) {
       Storage.deleteSuggestion(id);
       onDataChanged();

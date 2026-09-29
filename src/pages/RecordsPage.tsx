@@ -52,6 +52,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
   const [noticeContent, setNoticeContent] = useState('');
 
   const handleOpenEditRecord = (rec: CommitteeRecord) => {
+    if (!isOB) return;
     setEditingRecord(rec);
     setRecordTitle(rec.title);
     setRecordDate(rec.date);
@@ -59,6 +60,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
   };
 
   const handleDeleteRecord = (id: string, title: string) => {
+    if (!isOB) return;
     if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
       Storage.deleteRecord(id);
       onDataChanged();
@@ -66,6 +68,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
   };
 
   const handleOpenEditNotice = (n: Notice) => {
+    if (!isOB) return;
     setEditingNotice(n);
     setNoticeTitle(n.title);
     setNoticeCategory(n.category);
@@ -73,6 +76,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
   };
 
   const handleDeleteNotice = (id: string, title: string) => {
+    if (!isOB) return;
     if (window.confirm(`Are you sure you want to delete notice "${title}"?`)) {
       Storage.deleteNotice(id);
       onDataChanged();
@@ -81,6 +85,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
 
   // AI Note Reader handler
   const handleNoteImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isOB) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -105,6 +110,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
 
   const handleSaveRecord = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!recordTitle.trim() || !recordContent.trim()) return;
 
     if (editingRecord) {
@@ -132,6 +138,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
 
   const handleSaveNotice = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!noticeTitle.trim() || !noticeContent.trim()) return;
 
     if (editingNotice) {

@@ -82,6 +82,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const handleSaveRecord = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return;
     if (!recordTitle.trim() || !recordContent.trim()) return;
 
     if (editingRecord) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Member, Competition, Submission, BookReview, isOBRole, isDeveloperUser } from '../types';
+import { Member, Competition, Submission, BookReview, BookChallengeConfig, isOBRole, isDeveloperUser } from '../types';
 import { Storage } from '../utils/storage';
 import confetti from 'canvas-confetti';
 import {
@@ -21,6 +21,8 @@ import {
   Edit2,
   Trash2,
   Maximize2,
+  Sliders,
+  Settings,
 } from 'lucide-react';
 import { PhotoLightbox, LightboxPhoto } from '../components/PhotoLightbox';
 
@@ -129,7 +131,10 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
     setShowLightbox(true);
   };
 
-  // --- BOOK READING CHALLENGE (5-BOOK REWARD) DATA ---
+  // --- BOOK READING CHALLENGE (EDITABLE CONFIG BY OB / ADMIN) ---
+  const challengeConfig = Storage.getBookChallengeConfig();
+  const targetCount = Math.max(1, challengeConfig.targetBooks || 5);
+
   const bookReviews = Storage.getBookReviews();
   const [showAddBookModal, setShowAddBookModal] = useState(false);
   const [bookHming, setBookHming] = useState(''); // Only 1 compulsory
@@ -137,7 +142,15 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   const [bookReview, setBookReview] = useState('');
   const [bookPhoto, setBookPhoto] = useState('');
 
-  // Group books by member for 5-book challenge
+  // Edit Challenge Config modal states (OB Only)
+  const [showEditChallengeModal, setShowEditChallengeModal] = useState(false);
+  const [challengeTitle, setChallengeTitle] = useState(challengeConfig.title);
+  const [challengeTarget, setChallengeTarget] = useState(challengeConfig.targetBooks);
+  const [challengeRules, setChallengeRules] = useState(challengeConfig.rules);
+  const [challengeReward, setChallengeReward] = useState(challengeConfig.rewardDescription);
+  const [challengeIsActive, setChallengeIsActive] = useState(challengeConfig.isActive);
+
+  // Group books by member for challenge
   const memberBookStats: Record<string, { memberId: string; hming: string; count: number; books: BookReview[] }> = {};
   bookReviews.forEach((bk) => {
     if (!memberBookStats[bk.memberId]) {
@@ -153,9 +166,9 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   });
 
   const memberRankings = Object.values(memberBookStats).sort((a, b) => b.count - a.count);
-  const rewardQualifiedMembers = memberRankings.filter((m) => m.count >= 5);
+  const rewardQualifiedMembers = memberRankings.filter((m) => m.count >= targetCount);
   const myReadCount = currentUser ? (memberBookStats[currentUser.id]?.count || 0) : 0;
-  const isMyRewardQualified = myReadCount >= 5;
+  const isMyRewardQualified = myReadCount >= targetCount;
 
   const [bookFilter, setBookFilter] = useState<'all' | 'qualified' | 'myBooks'>('all');
 
@@ -310,8 +323,9 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
     }
   };
 
-  // Edit & Delete handlers for Submissions (Photo contest entries)
+  // Edit & Delete handlers for Submissions (Photo contest entries) - OB & Developer Only
   const handleOpenEditSub = (sub: Submission) => {
+    if (!isOB) return;
     setEditingSub(sub);
     setEditSubTitle(sub.title);
     setEditSubDesc(sub.description || '');
@@ -319,6 +333,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
   const handleSaveEditSub = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!editingSub || !editSubTitle.trim()) return;
     Storage.updateSubmission({
       ...editingSub,
@@ -330,14 +345,16 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   };
 
   const handleDeleteSub = (id: string, title: string) => {
+    if (!isOB) return;
     if (window.confirm(`Are you sure you want to delete submission "${title}"?`)) {
       Storage.deleteSubmission(id);
       onDataChanged();
     }
   };
 
-  // Edit & Delete handlers for Book Reviews
+  // Edit & Delete handlers for Book Reviews - OB & Developer Only
   const handleOpenEditBook = (bk: BookReview) => {
+    if (!isOB) return;
     setEditingBook(bk);
     setEditBookHming(bk.lehkhabuHming);
     setEditBookZiaktu(bk.ziaktu || '');
@@ -346,6 +363,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
   const handleSaveEditBook = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOB) return;
     if (!editingBook || !editBookHming.trim()) return;
     Storage.updateBookReview({
       ...editingBook,
@@ -359,11 +377,41 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   };
 
   const handleDeleteBook = (id: string, bookName: string) => {
+    if (!isOB) return;
     if (window.confirm(`Are you sure you want to delete book review "${bookName}"?`)) {
       Storage.deleteBookReview(id);
       setMainTab('reading');
       onDataChanged();
     }
+  };
+
+  // --- BOOK READING CHALLENGE SETTINGS HANDLERS (OB / DEVELOPER ONLY) ---
+  const handleOpenEditChallenge = () => {
+    if (!isOB) return;
+    setChallengeTitle(challengeConfig.title);
+    setChallengeTarget(challengeConfig.targetBooks);
+    setChallengeRules(challengeConfig.rules);
+    setChallengeReward(challengeConfig.rewardDescription);
+    setChallengeIsActive(challengeConfig.isActive);
+    setShowEditChallengeModal(true);
+  };
+
+  const handleSaveChallenge = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isOB) return;
+    Storage.updateBookChallengeConfig(
+      {
+        title: challengeTitle.trim() || 'Book Reading Challenge',
+        targetBooks: Math.max(1, Number(challengeTarget) || 5),
+        rules: challengeRules.trim(),
+        rewardDescription: challengeReward.trim(),
+        isActive: challengeIsActive,
+      },
+      currentUser?.hming
+    );
+    setShowEditChallengeModal(false);
+    setMainTab('reading');
+    onDataChanged();
   };
 
   // --- BOOK READING SUBMISSION ---
@@ -391,7 +439,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
     setShowAddBookModal(false);
     setMainTab('reading');
 
-    if (myReadCount + 1 >= 5) {
+    if (myReadCount + 1 >= targetCount) {
       triggerConfetti();
     }
     onDataChanged();
@@ -469,22 +517,35 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               )}
             </>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {isOB && (
-                <button
-                  onClick={() => {
-                    if (window.confirm("Lehkhabu chhiar thehluh zawng zawng hi i nawt reh vek duh takzet em? (RESET BOOK CHALLENGE)")) {
-                      Storage.clearAllBookReviews();
-                      onDataChanged();
-                    }
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-500 transition shadow-sm"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear All Reviews 🧹</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleOpenEditChallenge}
+                    className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950 hover:bg-amber-100 transition shadow-sm"
+                    title="Edit Challenge Rules, Target & Criteria"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Edit Rules & Target</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Lehkhabu chhiar thehluh zawng zawng hi i nawt reh vek duh takzet em? (RESET BOOK CHALLENGE)")) {
+                        Storage.clearAllBookReviews();
+                        onDataChanged();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-500 transition shadow-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All 🧹</span>
+                  </button>
+                </>
               )}
               <button
+                type="button"
                 onClick={() => {
                   if (!currentUser) {
                     onOpenLogin();
@@ -502,7 +563,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
         </div>
       </div>
 
-      {/* TOP SEGMENTED SWITCHER: GENERAL CONTESTS vs 5-BOOK READING ACTIVITY */}
+      {/* TOP SEGMENTED SWITCHER: GENERAL CONTESTS vs BOOK READING ACTIVITY */}
       <div className="grid grid-cols-2 gap-2 bg-slate-200/70 p-1 rounded-2xl max-w-lg shadow-inner">
         <button
           type="button"
@@ -527,9 +588,9 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
           }`}
         >
           <BookOpen className="w-4 h-4 text-blue-600" />
-          <span>5-Book Reading Challenge</span>
+          <span className="truncate">{challengeConfig.title}</span>
           <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full">
-            Reward
+            {targetCount} Books
           </span>
         </button>
       </div>
@@ -750,10 +811,11 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                             <span className="text-[10px] text-slate-400 font-mono">
                               {sub.submittedAt.split('T')[0]}
                             </span>
-                            {/* EDIT & DELETE BUTTONS - Visible to OBs, Developer, or Submission Author */}
-                            {(isOB || (currentUser && sub.memberId === currentUser.id)) && (
+                            {/* EDIT & DELETE BUTTONS - Visible to OBs & Developer Only */}
+                            {isOB && (
                               <div className="flex items-center gap-1 ml-1">
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenEditSub(sub)}
                                   className="rounded-lg p-1 text-slate-400 hover:bg-blue-50 hover:text-blue-700 transition"
                                   title="Edit Entry"
@@ -761,6 +823,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteSub(sub.id, sub.title)}
                                   className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                                   title="Delete Entry"
@@ -843,7 +906,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       {/* ======================================================== */}
       {mainTab === 'reading' && (
         <div className="space-y-6">
-          {/* 5-BOOK REWARD CHALLENGE HERO BANNER */}
+          {/* BOOK REWARD CHALLENGE HERO BANNER */}
           <div className="relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-white to-amber-50/50 p-5 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
@@ -851,32 +914,64 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                   <Gift className="w-6 h-6 stroke-[2.2]" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-amber-900">
-                      5-Book Challenge & Rewards
+                      {challengeConfig.title}
                     </span>
                     <span className="text-[10px] font-bold bg-amber-500 text-slate-950 px-2 py-0.2 rounded-full shadow-2xs">
-                      Target: 5 Books
+                      Target: {targetCount} Books
                     </span>
+                    {!challengeConfig.isActive && (
+                      <span className="text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.2 rounded-full">
+                        Closed / Paused
+                      </span>
+                    )}
                   </div>
                   <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
-                    Lehkhabu 5 tal chhiar chhuak rawh le — Lawmman dawng ngei turin!
+                    Lehkhabu {targetCount} tal chhiar chhuak rawh le — Lawmman dawng ngei turin!
                   </h2>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Branch member tupawh kum 2026 chhungin lehkhabu 5 chhiar tling apiangte hnenah Branch-in Lawmman tha tak a hlan dawn e.
+                    {challengeConfig.rewardDescription}
                   </p>
                 </div>
               </div>
 
-              <div className="text-right self-start sm:self-auto">
-                <div className="text-xs text-slate-500 font-medium">Lawmman dawng thei tling tawh:</div>
-                <div className="text-xl sm:text-2xl font-black text-amber-700">
-                  {rewardQualifiedMembers.length} Members 🏆
+              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 self-stretch sm:self-auto">
+                <div className="text-right">
+                  <div className="text-xs text-slate-500 font-medium">Lawmman dawng thei tling tawh:</div>
+                  <div className="text-xl sm:text-2xl font-black text-amber-700">
+                    {rewardQualifiedMembers.length} Members 🏆
+                  </div>
                 </div>
+
+                {/* OB quick edit button */}
+                {isOB && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditChallenge}
+                    className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-50 transition shadow-2xs"
+                  >
+                    <Sliders className="w-3 h-3 text-amber-700" />
+                    <span>Dan & Target Siamrem</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* PERSONAL 5-BOOK PROGRESS TRACKER (For Logged in User) */}
+            {/* DYNAMIC RULES & CRITERIA DISPLAY */}
+            {challengeConfig.rules && (
+              <div className="mt-3.5 flex items-start gap-2.5 rounded-xl bg-amber-100/70 border border-amber-300 p-3 text-xs text-amber-950">
+                <FileText className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-amber-900 uppercase text-[10px] tracking-wider block mb-0.5">
+                    Dan & Kairawhhna (Rules & Criteria):
+                  </span>
+                  <p className="leading-relaxed font-medium">{challengeConfig.rules}</p>
+                </div>
+              </div>
+            )}
+
+            {/* PERSONAL BOOK PROGRESS TRACKER (For Logged in User) */}
             {currentUser && (
               <div className="mt-4 pt-4 border-t border-amber-200/70">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
@@ -885,7 +980,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                       I Chhiar Tawh Zat ({currentUser.hming}):
                     </span>
                     <span className="font-mono text-sm font-black text-blue-800">
-                      {myReadCount} / 5 Books
+                      {myReadCount} / {targetCount} Books
                     </span>
                   </div>
 
@@ -896,7 +991,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                     </div>
                   ) : (
                     <span className="text-xs text-slate-600">
-                      Lawmman dawng turin lehkhabu <strong className="text-amber-700 font-bold">{5 - myReadCount}</strong> chhiar a la ngai!
+                      Lawmman dawng turin lehkhabu <strong className="text-amber-700 font-bold">{Math.max(0, targetCount - myReadCount)}</strong> chhiar a la ngai!
                     </span>
                   )}
                 </div>
@@ -909,29 +1004,30 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                         ? 'bg-gradient-to-r from-amber-500 to-emerald-600'
                         : 'bg-gradient-to-r from-blue-600 to-amber-500'
                     }`}
-                    style={{ width: `${Math.min(100, (myReadCount / 5) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (myReadCount / targetCount) * 100)}%` }}
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* HALL OF FAME: 5+ BOOKS REWARD WINNERS */}
+          {/* HALL OF FAME: TARGET+ BOOKS REWARD WINNERS */}
           {rewardQualifiedMembers.length > 0 && (
             <div className="rounded-2xl border border-amber-300 bg-white p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-600" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    5+ Books Reward Qualified Members ({rewardQualifiedMembers.length})
+                    {targetCount}+ Books Reward Qualified Members ({rewardQualifiedMembers.length})
                   </h3>
                 </div>
                 <button
+                  type="button"
                   onClick={triggerConfetti}
                   className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Celebrate 5+ Club 🎉</span>
+                  <span>Celebrate {targetCount}+ Club 🎉</span>
                 </button>
               </div>
 
@@ -989,7 +1085,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              5+ Club ({rewardQualifiedMembers.length})
+              {targetCount}+ Club ({rewardQualifiedMembers.length})
             </button>
             {currentUser && (
               <button
@@ -1012,13 +1108,13 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-slate-200 p-6">
                 <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm font-semibold text-slate-600">Lehkhabu thehlut an la awm lo.</p>
-                <p className="text-xs text-slate-400 mt-1">Lehkhabu hming chhu lut la, 5-book reward target pan rawh le!</p>
+                <p className="text-xs text-slate-400 mt-1">Lehkhabu hming chhu lut la, {targetCount}-book reward target pan rawh le!</p>
               </div>
             ) : (
               displayedBooks.map((bk) => {
                 const hasGivenThumb = currentUser && bk.goodReads.includes(currentUser.id);
                 const userTotalRead = memberBookStats[bk.memberId]?.count || 1;
-                const isUserQualified = userTotalRead >= 5;
+                const isUserQualified = userTotalRead >= targetCount;
 
                 return (
                   <div
@@ -1034,7 +1130,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                             </span>
                             {isUserQualified && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                                🏆 5+ Club
+                                🏆 {targetCount}+ Club
                               </span>
                             )}
                             <span className="text-[11px] text-slate-400 font-mono">
@@ -1092,13 +1188,13 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                         <User className="w-3.5 h-3.5 text-slate-400" />
                         <span>
                           Chhiartu: <strong className="text-blue-900">{bk.memberHming}</strong>{' '}
-                          <span className="text-[11px] text-slate-400 font-mono">({userTotalRead}/5)</span>
+                          <span className="text-[11px] text-slate-400 font-mono">({userTotalRead}/{targetCount})</span>
                         </span>
                       </span>
 
                       <div className="flex items-center gap-2">
-                        {/* EDIT & DELETE BUTTONS - Visible to OBs, Developer, or Book Review Author */}
-                        {(isOB || (currentUser && bk.memberId === currentUser.id)) && (
+                        {/* EDIT & DELETE BUTTONS - Visible to OBs & Developer Only */}
+                        {isOB && (
                           <div className="flex items-center gap-1 mr-1">
                             <button
                               type="button"
@@ -1119,19 +1215,27 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                           </div>
                         )}
 
-                        {/* OBs click "Chhiar tha 👍" */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleChhiarTha(bk.id)}
-                          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-xs ${
-                            hasGivenThumb
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          <span>Chhiar tha 👍 ({bk.goodReads.length})</span>
-                        </button>
+                        {/* OBs click "Chhiar tha 👍" (Competition Review) / Members view count */}
+                        {isOB ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleChhiarTha(bk.id)}
+                            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-xs ${
+                              hasGivenThumb
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                            title="OB Review Endorsement"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <span>Chhiar tha 👍 ({bk.goodReads.length})</span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700">
+                            <ThumbsUp className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Chhiar tha: {bk.goodReads.length}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1442,7 +1546,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
               </div>
 
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
-                🎯 I thehluh rual hian i 5-book reward score chu <strong>{myReadCount + 1}/5</strong> a ni tawh ang!
+                🎯 I thehluh rual hian i reward score chu <strong>{myReadCount + 1}/{targetCount}</strong> a ni tawh ang!
               </div>
 
               <div className="pt-2 flex gap-2">
@@ -1677,6 +1781,124 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                   className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-sm"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT BOOK READING CHALLENGE SETTINGS (OB ONLY) */}
+      {showEditChallengeModal && isOB && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Lehkhabu Chhiar Intihsiakna Siamremna</h3>
+                  <p className="text-xs text-slate-500">OB & Developer chauhvin an siamrem thei</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditChallengeModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveChallenge} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Intihsiakna Hming / Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={challengeTitle}
+                  onChange={(e) => setChallengeTitle(e.target.value)}
+                  placeholder="e.g. 5-Book Reading Challenge"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Lehkhabu Chhiar Ngai Zat (Target No. of Books)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={50}
+                  value={challengeTarget}
+                  onChange={(e) => setChallengeTarget(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 focus:border-amber-500 focus:outline-none font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Member-ten lawmman dawng tura lehkhabu an chhiar chhuah ngai zat (e.g. 3, 5, or 10).
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Dan & Kairawhhna (Rules & Criteria)
+                </label>
+                <textarea
+                  rows={3}
+                  value={challengeRules}
+                  onChange={(e) => setChallengeRules(e.target.value)}
+                  placeholder="e.g. Reading a book which is not more than 100 pages / Lehkhabu phêk 100 aia tam lo..."
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Phek zat bi (page limit), lehkhabu chi thlan tur, leh thil dang tarlan tur te.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Lawmman Hrilhfiahna (Reward Description)
+                </label>
+                <input
+                  type="text"
+                  value={challengeReward}
+                  onChange={(e) => setChallengeReward(e.target.value)}
+                  placeholder="e.g. Branch hnen atangin Lawmman tha tak a hlan dawn e."
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="challengeActiveCheck"
+                  checked={challengeIsActive}
+                  onChange={(e) => setChallengeIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 accent-amber-600"
+                />
+                <label htmlFor="challengeActiveCheck" className="text-xs font-bold text-slate-800 cursor-pointer">
+                  He Intihsiakna hi kal mek a ni (Active)
+                </label>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditChallengeModal(false)}
+                  className="flex-1 rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-sm"
+                >
+                  Save Challenge Rules
                 </button>
               </div>
             </form>

@@ -6,6 +6,8 @@ import {
   CommitteeMeeting,
   CommitteeRecord,
   BookReview,
+  BookChallengeConfig,
+  DEFAULT_BOOK_CHALLENGE_CONFIG,
   Suggestion,
   PromiseBudget,
   PaymentTransaction,
@@ -44,6 +46,7 @@ const STORAGE_KEYS = {
   EXPENSES: 'kpg_expenses_v4',
   EX_OFFICIO: 'kpg_ex_officio_v4',
   HLA_BAWM: 'kpg_hla_bawm_v4',
+  BOOK_CHALLENGE: 'kpg_book_challenge_v4',
   INITIALIZED: 'kpg_initialized_v4',
 };
 
@@ -99,6 +102,7 @@ export const Storage = {
       safeSetItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(INITIAL_PAYMENTS));
       safeSetItem(STORAGE_KEYS.EX_OFFICIO, JSON.stringify(INITIAL_EX_OFFICIO));
       safeSetItem(STORAGE_KEYS.HLA_BAWM, JSON.stringify([]));
+      safeSetItem(STORAGE_KEYS.BOOK_CHALLENGE, JSON.stringify([DEFAULT_BOOK_CHALLENGE_CONFIG]));
       safeSetItem(STORAGE_KEYS.INITIALIZED, 'true');
     }
 
@@ -799,6 +803,44 @@ export const Storage = {
       return rev;
     }
     throw new Error('Book not found');
+  },
+
+  // ---------------- BOOK READING CHALLENGE CONFIG (EDITABLE BY OB / ADMIN) ----------------
+  getBookChallengeConfig(): BookChallengeConfig {
+    this.init();
+    const str = localStorage.getItem(STORAGE_KEYS.BOOK_CHALLENGE);
+    if (str) {
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return { ...DEFAULT_BOOK_CHALLENGE_CONFIG, ...parsed[0] };
+        }
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_BOOK_CHALLENGE_CONFIG, ...parsed };
+        }
+      } catch {
+        // ignore and fallback
+      }
+    }
+    return DEFAULT_BOOK_CHALLENGE_CONFIG;
+  },
+
+  updateBookChallengeConfig(config: Partial<BookChallengeConfig>, updatedBy?: string): BookChallengeConfig {
+    const current = this.getBookChallengeConfig();
+    const updated: BookChallengeConfig = {
+      ...current,
+      ...config,
+      id: 'current',
+      updatedBy: updatedBy || current.updatedBy,
+      updatedAt: new Date().toISOString(),
+    };
+    safeSetItem(STORAGE_KEYS.BOOK_CHALLENGE, JSON.stringify([updated]));
+    addToFirestore(COLLECTIONS.BOOK_CHALLENGE, 'current', updated);
+    NotificationService.notifyNewUpdate(
+      `Lehkhabu Chhiar Dan Thar: ${updated.title}`,
+      `Target: ${updated.targetBooks} Books. ${updated.rules.slice(0, 50)}...`
+    );
+    return updated;
   },
 
   // ---------------- SUGGESTIONS ----------------
