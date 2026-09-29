@@ -106,13 +106,22 @@ export async function uploadProfilePhotoToStorage(
     const app = getApp();
     const storage = getStorage(app);
     const storageRef = ref(storage, `profile_pics/${userId}.jpg`);
-    const snapshot = await uploadBytes(storageRef, imageBlob, {
-      contentType: 'image/jpeg',
-    });
+    
+    // Create a promise that rejects after 10 seconds
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Upload timed out')), 10000)
+    );
+
+    // Race the upload against the timeout
+    const snapshot: any = await Promise.race([
+      uploadBytes(storageRef, imageBlob, { contentType: 'image/jpeg' }),
+      timeoutPromise
+    ]);
+
     const downloadUrl = await getDownloadURL(snapshot.ref);
     return downloadUrl;
   } catch (err) {
-    console.warn('Firebase Storage upload failed or restricted, using compressed data URL:', err);
+    console.warn('Firebase Storage upload failed or timed out, using compressed data URL:', err);
     // Return compressed base64 data URL as seamless resilient fallback
     return fallbackDataUrl;
   }
