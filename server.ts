@@ -72,6 +72,7 @@ Generate at least 5 to 10 questions depending on the request. Ensure all options
   }
 });
 
+// Triggering new deployment to pick up updated secrets
 // API: AI Chat Agent with Competition Management Actions
 const SYSTEM_INSTRUCTION = `You are Karmel AI Assistant Agent for P GROUP 2026 Darlawn Karmel Branch. You are a COMPETITION FACTORY.
 You can chat with the developer in Mizo or English, answer questions, and help them create, modify, or manage competitions and quizzes of any type: quiz, drag_drop, matching, typing_race, buzzer_beater, puzzle, memory_game, debate, photo_contest, video_contest, essay, scavenger_hunt, or any game requested.

@@ -112,7 +112,14 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
           activeCompetition: activeComp || null
         }),
       });
-      const data = await response.json();
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error(`Server returned invalid response (status ${response.status})`);
+      }
+
       if (response.ok) {
         let replyText = data.reply || '';
         let extractedActionData = null;
