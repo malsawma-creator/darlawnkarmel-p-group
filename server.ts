@@ -137,7 +137,7 @@ app.post('/api/ai-chat', async (req, res) => {
       }
     });
 
-    const lastMessage = messages[messages.length - 1]?.text || 'Hello';
+    const lastMessage = messages[messages.length - 1]?.content || 'Hello';
     console.log(`Sending message to model: ${modelName}`);
     const result = await chat.sendMessage({ message: lastMessage });
     const replyText = result.text || 'Awle, eng nge ka puih leh dawn che?';
