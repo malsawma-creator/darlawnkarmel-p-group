@@ -75,6 +75,8 @@ export const COLLECTIONS = {
   APP_NOTIFICATIONS: 'app_notifications',
   BOOK_CHALLENGE: 'book_challenge',
   GROUP_MEMBER_LIST: 'group_member_list',
+  LEAGUE_SCORES: 'league_scores',
+  QUIZ_SUBMISSIONS: 'quiz_submissions',
 };
 
 // Local storage keys to firestore mapping
@@ -95,6 +97,8 @@ export const STORAGE_TO_FIRESTORE: Record<string, string> = {
   'kpg_notifications_v1': COLLECTIONS.APP_NOTIFICATIONS,
   'kpg_book_challenge_v4': COLLECTIONS.BOOK_CHALLENGE,
   'kpg_group_member_list_v4': COLLECTIONS.GROUP_MEMBER_LIST,
+  'kpg_league_scores_v4': COLLECTIONS.LEAGUE_SCORES,
+  'kpg_quiz_submissions_v4': COLLECTIONS.QUIZ_SUBMISSIONS,
 };
 
 // Firestore to Local storage keys mapping

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Member, Competition, Submission, BookReview, BookChallengeConfig, isOBRole, isDeveloperUser } from '../types';
 import { Storage } from '../utils/storage';
+import { BibleLeagueSystem } from '../components/BibleLeagueSystem';
 import confetti from 'canvas-confetti';
 import {
   Trophy,
@@ -33,23 +34,26 @@ interface IntihsiaknaPageProps {
   dataVersion?: number;
 }
 
-type MainTab = 'contests' | 'reading';
+type MainTab = 'bible_league' | 'contests' | 'reading';
 
 export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   currentUser,
   onOpenLogin,
   onDataChanged,
 }) => {
-  // Persistent mainTab: reading vs contests (remembers tab across data changes)
+  const isDeveloper = isDeveloperUser(currentUser);
+
+  // Persistent mainTab: bible_league vs reading vs contests
   const [mainTab, setMainTabState] = useState<MainTab>(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
       if (hash === '#reading' || hash === '#book-reading') return 'reading';
       if (hash === '#contests') return 'contests';
+      if (hash === '#bible_league' || hash === '#quizzes' || hash === '#quiz') return 'bible_league';
       const saved = sessionStorage.getItem('kpg_intihsiakna_tab');
-      if (saved === 'reading' || saved === 'contests') return saved as MainTab;
+      if (saved === 'reading' || saved === 'contests' || saved === 'bible_league') return saved as MainTab;
     }
-    return 'contests';
+    return 'bible_league';
   });
 
   const setMainTab = (tab: MainTab) => {
@@ -57,7 +61,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
     try {
       sessionStorage.setItem('kpg_intihsiakna_tab', tab);
       if (typeof window !== 'undefined') {
-        window.location.hash = tab === 'reading' ? 'reading' : 'contests';
+        window.location.hash = tab === 'reading' ? 'reading' : tab === 'contests' ? 'contests' : 'bible_league';
       }
     } catch {}
   };
@@ -69,6 +73,8 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
         setMainTabState('reading');
       } else if (hash === '#contests') {
         setMainTabState('contests');
+      } else if (hash === '#bible_league' || hash === '#quizzes' || hash === '#quiz') {
+        setMainTabState('bible_league');
       }
     };
     window.addEventListener('hashchange', handleHash);
@@ -77,8 +83,8 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
   // --- GENERAL COMPETITIONS DATA ---
   const allCompetitions = Storage.getCompetitions();
-  const isOB = (currentUser && isOBRole(currentUser.role)) || isDeveloperUser(currentUser);
-  const competitions = allCompetitions.filter(c => isOB || c.status === 'Active');
+  const isOB = (currentUser && isOBRole(currentUser.role)) || isDeveloper;
+  const competitions = allCompetitions.filter(c => isDeveloper || c.status === 'Active');
   
   const [selectedCompId, setSelectedCompId] = useState<string>(
     competitions[0]?.id || ''
@@ -706,15 +712,20 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
         {/* Action button based on active subtab */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          {mainTab === 'contests' ? (
+          {mainTab === 'bible_league' ? (
+            <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span>Season 2026 Live League</span>
+            </div>
+          ) : mainTab === 'contests' ? (
             <>
-              {isOB && (
+              {isDeveloper && (
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Create Contest</span>
+                  <span>Create Contest (Developer)</span>
                 </button>
               )}
               {activeComp && activeComp.type !== 'Quiz' && !activeComp.quizData && (
@@ -780,37 +791,58 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
         </div>
       </div>
 
-      {/* TOP SEGMENTED SWITCHER: GENERAL CONTESTS vs BOOK READING ACTIVITY */}
-      <div className="grid grid-cols-2 gap-2 bg-slate-200/70 p-1 rounded-2xl max-w-lg shadow-inner">
+      {/* TOP SEGMENTED SWITCHER: BIBLE LEAGUE vs CONTESTS vs BOOK READING */}
+      <div className="grid grid-cols-3 gap-1.5 bg-slate-200/70 p-1 rounded-2xl max-w-xl shadow-inner">
+        <button
+          type="button"
+          onClick={() => setMainTab('bible_league')}
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+            mainTab === 'bible_league'
+              ? 'bg-blue-600 text-white shadow-sm font-black'
+              : 'text-slate-700 hover:text-slate-900 font-semibold'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-300" />
+          <span>Bible League 📖</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setMainTab('contests')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
             mainTab === 'contests'
-              ? 'bg-white text-blue-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-blue-900 shadow-sm font-black'
+              : 'text-slate-700 hover:text-slate-900 font-semibold'
           }`}
         >
           <Trophy className="w-4 h-4 text-amber-500" />
-          <span>Intihsiakna ({competitions.length})</span>
+          <span>Contests 📸</span>
         </button>
 
         <button
           type="button"
           onClick={() => setMainTab('reading')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
             mainTab === 'reading'
-              ? 'bg-white text-blue-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-blue-900 shadow-sm font-black'
+              : 'text-slate-700 hover:text-slate-900 font-semibold'
           }`}
         >
           <BookOpen className="w-4 h-4 text-blue-600" />
-          <span className="truncate">{challengeConfig.title}</span>
-          <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full">
-            {targetCount} Books
-          </span>
+          <span className="truncate">Book Challenge</span>
         </button>
       </div>
+
+      {/* ======================================================== */}
+      {/* SECTION 0: BIBLE LEAGUE SYSTEM (ALL IN MIZO)             */}
+      {/* ======================================================== */}
+      {mainTab === 'bible_league' && (
+        <BibleLeagueSystem
+          currentUser={currentUser}
+          onOpenLogin={onOpenLogin}
+          onDataChanged={onDataChanged}
+        />
+      )}
 
       {/* ======================================================== */}
       {/* SECTION 1: GENERAL COMPETITIONS (VOTING & OB MARKS)      */}

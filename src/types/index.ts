@@ -142,23 +142,85 @@ export interface Notice {
   pinned?: boolean;
 }
 
+export type BibleCompetitionType =
+  | 'mcq_classic'        // 🧠 MCQ Classic - Zawhna pangngai
+  | 'verse_detective'    // 🔍 Verse Detective - Chang dik leh dik lo zawn chhuah
+  | 'connect_pair'       // 🧩 Connect The Pair - Thil inzawm zawm (Left & Right)
+  | 'word_scramble'      // 🔤 Word Scramble - Thumal chhiarlet
+  | 'emoji_story'        // 😇 Emoji Bible Story - Emoji atanga Bible chanchin hriat
+  | 'two_truths_one_lie' // 🤥 2 Truths 1 Lie - Thu 2 dik, 1 daw
+  | 'fill_blank';        // ✍️ Fill The Blank - Bible chang ruak hnawhkhah
+
+export interface BibleQuestion {
+  id: string;
+  type?: BibleCompetitionType;
+  question: string;
+  // For MCQ, Emoji Story, Fill The Blank
+  options?: string[];
+  correctAnswer?: number; // index of correct option
+  // For Verse Detective (true/false)
+  isCorrect?: boolean;
+  correctionNote?: string;
+  // For Word Scramble
+  scrambledWord?: string;
+  correctWord?: string;
+  // For Connect The Pair
+  pairs?: { left: string; right: string }[];
+  // For 2 Truths 1 Lie
+  statements?: { text: string; isLie: boolean }[];
+  lieExplanation?: string;
+  // Verse Reveal Feature (Must have)
+  verseRef: string;
+  verseText: string;
+  points?: number;
+  hasHiddenChest?: boolean;
+}
+
 export interface Competition {
   id: string;
   title: string;
-  type: string; // Photography, Video, Essay, Singing, Art, Quiz, etc.
+  type: string; // Photography, Video, Essay, Singing, Art, Quiz, or BibleCompetitionType
   description: string;
   lastDate: string;
   createdBy: string;
   createdAt: string;
   status: 'Draft' | 'Active' | 'Closed';
+  competitionType?: BibleCompetitionType;
+  timerSeconds?: number;
+  pointsPerQuestion?: number;
+  weekTitle?: string;
   quizData?: {
     timerSeconds?: number;
-    questions: {
-      question: string;
-      options: string[];
-      correctAnswer: number; // index of correct option
-    }[];
+    pointsPerQuestion?: number;
+    competitionType?: BibleCompetitionType;
+    questions: BibleQuestion[];
   };
+}
+
+export interface LeaguePlayHistory {
+  competitionId: string;
+  weekTitle: string;
+  type: string;
+  score: number;
+  maxScore: number;
+  date: string;
+  speedBonus?: number;
+  hiddenChestBonus?: number;
+  streakBonus?: number;
+  totalEarned: number;
+}
+
+export interface LeagueScore {
+  id: string;
+  userId: string;
+  userName: string;
+  userVeng?: string;
+  totalPoints: number; // A pung zel, a bo ngai lo
+  weeksPlayed: number;
+  currentStreak: number;
+  lastPlayedWeek?: string;
+  history: LeaguePlayHistory[];
+  updatedAt: string;
 }
 
 export interface Submission {

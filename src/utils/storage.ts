@@ -17,6 +17,10 @@ import {
   UserRole,
   MemberStatus,
   HlaItem,
+  LeagueScore,
+  LeaguePlayHistory,
+  BibleQuestion,
+  BibleCompetitionType,
 } from '../types';
 import { NotificationService } from './notifications';
 import { 
@@ -49,6 +53,8 @@ const STORAGE_KEYS = {
   HLA_BAWM: 'kpg_hla_bawm_v4',
   BOOK_CHALLENGE: 'kpg_book_challenge_v4',
   GROUP_MEMBER_LIST: 'kpg_group_member_list_v4',
+  LEAGUE_SCORES: 'kpg_league_scores_v4',
+  QUIZ_SUBMISSIONS: 'kpg_quiz_submissions_v4',
   INITIALIZED: 'kpg_initialized_v4',
   CUSTOM_BANNER_BG: 'kpg_custom_banner_bg_v4',
 };
@@ -152,6 +158,30 @@ export const Storage = {
     filterOut(STORAGE_KEYS.EXPENSES, MOCK_EXP_IDS);
     filterOut(STORAGE_KEYS.PAYMENTS, MOCK_PAY_IDS);
     filterOut(STORAGE_KEYS.PROMISE_BUDGETS, MOCK_PB_IDS);
+
+    // Clean up any old demo/sample competitions
+    const compStr = localStorage.getItem(STORAGE_KEYS.COMPETITIONS);
+    if (compStr) {
+      try {
+        const comps = JSON.parse(compStr);
+        if (Array.isArray(comps)) {
+          const demoTitles = [
+            '🧠 Bible Chanchin Hmasa (MCQ Classic)',
+            '🔤 Bible Thumal Chhiarlet (Word Scramble)',
+            '🔍 Verse Detective (Chang Dik & Dik Lo)',
+          ];
+          const filteredComps = comps.filter((c: any) => !demoTitles.includes(c.title));
+          if (filteredComps.length !== comps.length) {
+            safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(filteredComps));
+            comps.forEach((c: any) => {
+              if (demoTitles.includes(c.title)) {
+                deleteFromFirestore(COLLECTIONS.COMPETITIONS, c.id);
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    }
     filterOut(STORAGE_KEYS.EX_OFFICIO, MOCK_EXO_IDS);
   },
 
@@ -524,14 +554,31 @@ export const Storage = {
     comps.unshift(newComp);
     safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
     addToFirestore(COLLECTIONS.COMPETITIONS, newComp.id, newComp);
-    NotificationService.notifyNewUpdate(`Intihsiakna Thar: ${newComp.title}`);
+    
+    // Only notify members and OBs when published as Active! (Drafts remain quiet)
+    if (newComp.status === 'Active') {
+      NotificationService.notifyNewUpdate('Intihsiakna Thar A Awm E! 🏆', `${newComp.title} - Chhang turin lo lut ve rawh le!`);
+    }
     return newComp;
   },
 
   updateCompetition(comp: Competition) {
-    const comps = this.getCompetitions().map((c) => (c.id === comp.id ? comp : c));
-    safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
+    const comps = this.getCompetitions();
+    const oldComp = comps.find((c) => c.id === comp.id);
+    const wasDraft = oldComp && oldComp.status === 'Draft';
+    const isNowActive = comp.status === 'Active';
+
+    const updated = comps.map((c) => (c.id === comp.id ? comp : c));
+    safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(updated));
     updateInFirestore(COLLECTIONS.COMPETITIONS, comp.id, comp);
+
+    // Notify members and OBs ONLY when developer publishes from Draft -> Active!
+    if (wasDraft && isNowActive) {
+      NotificationService.notifyNewUpdate(
+        'Intihsiakna Thar A Awm E! 🏆',
+        `${comp.title} - Chhang turin lo lut ve rawh le!`
+      );
+    }
   },
 
   deleteCompetition(id: string) {
@@ -605,6 +652,145 @@ export const Storage = {
       return sub;
     }
     throw new Error('Submission not found');
+  },
+
+  // ---------------- BIBLE LEAGUE & LEAGUE MEMORY ----------------
+  getLeagueScores(): LeagueScore[] {
+    this.init();
+    const str = localStorage.getItem(STORAGE_KEYS.LEAGUE_SCORES);
+    const scores: LeagueScore[] = str ? JSON.parse(str) : [];
+    return scores.sort((a, b) => b.totalPoints - a.totalPoints);
+  },
+
+  getLeagueScoreForUser(userId: string): LeagueScore | null {
+    const scores = this.getLeagueScores();
+    return scores.find((s) => s.userId === userId) || null;
+  },
+
+  saveLeagueScores(scores: LeagueScore[]) {
+    safeSetItem(STORAGE_KEYS.LEAGUE_SCORES, JSON.stringify(scores));
+  },
+
+  getQuizSubmissions(competitionId?: string): any[] {
+    this.init();
+    const str = localStorage.getItem(STORAGE_KEYS.QUIZ_SUBMISSIONS);
+    const all: any[] = str ? JSON.parse(str) : [];
+    if (competitionId) {
+      return all.filter((s) => s.competitionId === competitionId);
+    }
+    return all;
+  },
+
+  hasUserPlayedCompetition(userId: string, competitionId: string): boolean {
+    const all = this.getQuizSubmissions(competitionId);
+    return all.some((s) => s.memberId === userId || s.userId === userId);
+  },
+
+  getUserSubmissionForCompetition(userId: string, competitionId: string): any | null {
+    const all = this.getQuizSubmissions(competitionId);
+    return all.find((s) => s.memberId === userId || s.userId === userId) || null;
+  },
+
+  recordLeaguePlay(params: {
+    userId: string;
+    userName: string;
+    userVeng?: string;
+    competitionId: string;
+    weekTitle: string;
+    type: string;
+    score: number;
+    maxScore: number;
+    speedBonus: number;
+    hiddenChestBonus: number;
+    streakBonus: number;
+    totalEarned: number;
+    answers?: Record<string, any>;
+  }): LeagueScore {
+    this.init();
+    const scores = this.getLeagueScores();
+    let userScore = scores.find((s) => s.userId === params.userId);
+
+    const alreadyPlayed = this.hasUserPlayedCompetition(params.userId, params.competitionId);
+
+    // Record submission
+    const submissions = this.getQuizSubmissions();
+    const newSubmission = {
+      id: `qsub-${Date.now()}-${params.userId}`,
+      competitionId: params.competitionId,
+      memberId: params.userId,
+      userId: params.userId,
+      memberHming: params.userName,
+      userName: params.userName,
+      userVeng: params.userVeng || '',
+      score: params.score,
+      maxScore: params.maxScore,
+      speedBonus: params.speedBonus,
+      hiddenChestBonus: params.hiddenChestBonus,
+      streakBonus: params.streakBonus,
+      totalEarned: params.totalEarned,
+      submittedAt: new Date().toISOString(),
+      answers: params.answers || {},
+    };
+
+    if (!alreadyPlayed) {
+      submissions.push(newSubmission);
+      safeSetItem(STORAGE_KEYS.QUIZ_SUBMISSIONS, JSON.stringify(submissions));
+      addToFirestore(COLLECTIONS.QUIZ_SUBMISSIONS, newSubmission.id, newSubmission);
+    }
+
+    if (userScore) {
+      if (!alreadyPlayed) {
+        userScore.totalPoints = (userScore.totalPoints || 0) + params.totalEarned;
+        userScore.weeksPlayed = (userScore.weeksPlayed || 0) + 1;
+        userScore.currentStreak = (userScore.currentStreak || 0) + 1;
+        userScore.userName = params.userName;
+        userScore.userVeng = params.userVeng || userScore.userVeng;
+        userScore.lastPlayedWeek = params.weekTitle;
+        if (!userScore.history) userScore.history = [];
+        userScore.history.unshift({
+          competitionId: params.competitionId,
+          weekTitle: params.weekTitle,
+          type: params.type,
+          score: params.score,
+          maxScore: params.maxScore,
+          date: new Date().toISOString().split('T')[0],
+          speedBonus: params.speedBonus,
+          hiddenChestBonus: params.hiddenChestBonus,
+          streakBonus: params.streakBonus,
+          totalEarned: params.totalEarned,
+        });
+        userScore.updatedAt = new Date().toISOString();
+      }
+    } else {
+      userScore = {
+        id: `ls-${params.userId}`,
+        userId: params.userId,
+        userName: params.userName,
+        userVeng: params.userVeng || '',
+        totalPoints: params.totalEarned,
+        weeksPlayed: 1,
+        currentStreak: 1,
+        lastPlayedWeek: params.weekTitle,
+        history: [{
+          competitionId: params.competitionId,
+          weekTitle: params.weekTitle,
+          type: params.type,
+          score: params.score,
+          maxScore: params.maxScore,
+          date: new Date().toISOString().split('T')[0],
+          speedBonus: params.speedBonus,
+          hiddenChestBonus: params.hiddenChestBonus,
+          streakBonus: params.streakBonus,
+          totalEarned: params.totalEarned,
+        }],
+        updatedAt: new Date().toISOString(),
+      };
+      scores.push(userScore);
+    }
+
+    this.saveLeagueScores(scores);
+    addToFirestore(COLLECTIONS.LEAGUE_SCORES, userScore.id, userScore);
+    return userScore;
   },
 
   // ---------------- MEETINGS ----------------
@@ -1016,6 +1202,18 @@ export const Storage = {
       for (const c of comps) {
         if (c && c.id) {
           await addToFirestore(COLLECTIONS.COMPETITIONS, c.id, c);
+        }
+      }
+      const scores = this.getLeagueScores();
+      for (const s of scores) {
+        if (s && s.id) {
+          await addToFirestore(COLLECTIONS.LEAGUE_SCORES, s.id, s);
+        }
+      }
+      const qsubs = this.getQuizSubmissions();
+      for (const qs of qsubs) {
+        if (qs && qs.id) {
+          await addToFirestore(COLLECTIONS.QUIZ_SUBMISSIONS, qs.id, qs);
         }
       }
     } catch (e) {

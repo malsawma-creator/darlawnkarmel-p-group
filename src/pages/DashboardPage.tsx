@@ -194,7 +194,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       {(() => {
         const notices = Storage.getNotices();
         const records = Storage.getRecords();
-        const competitions = Storage.getCompetitions();
+        const competitions = Storage.getCompetitions().filter((c) => isDev ? true : c.status === 'Active');
         const meetings = Storage.getMeetings();
 
         const allFeedItems = [

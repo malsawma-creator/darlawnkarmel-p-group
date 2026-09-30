@@ -152,6 +152,17 @@ class QueryBuilder {
       case 'ex_officio':
         items = Storage.getExOfficio();
         break;
+      case 'league_scores':
+      case 'league':
+        items = (Storage.getLeagueScores ? Storage.getLeagueScores() : []).map((s: any) => ({
+          user_id: s.userId,
+          user_name: s.userName,
+          total_points: s.totalPoints,
+          weeks_played: s.weeksPlayed,
+          current_streak: s.currentStreak,
+          history: s.history,
+        }));
+        break;
       default:
         items = [];
     }
