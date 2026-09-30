@@ -513,13 +513,13 @@ export const Storage = {
     return str ? JSON.parse(str) : [];
   },
 
-  addCompetition(comp: Omit<Competition, 'id' | 'createdAt' | 'status'>): Competition {
+  addCompetition(comp: Omit<Competition, 'id' | 'createdAt' | 'status'> & { status?: Competition['status'] }): Competition {
     const comps = this.getCompetitions();
     const newComp: Competition = {
       ...comp,
       id: `comp-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
-      status: 'Active',
+      status: comp.status || 'Active',
     };
     comps.unshift(newComp);
     safeSetItem(STORAGE_KEYS.COMPETITIONS, JSON.stringify(comps));
