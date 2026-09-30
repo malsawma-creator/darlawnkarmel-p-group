@@ -2,139 +2,42 @@
   "entities": {
     "Member": {
       "title": "Member",
-      "description": "Branch youth member record",
+      "description": "User profile",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "hming": { "type": "string" },
-        "nuLehPa": { "type": "string" },
-        "veng": { "type": "string" },
-        "phone": { "type": "string" },
-        "dob": { "type": "string" },
-        "gender": { "type": "string", "enum": ["Mipa", "Hmeichhia"] },
-        "role": { "type": "string" },
-        "status": { "type": "string", "enum": ["Approved", "Pending", "Rejected"] },
-        "photoUrl": { "type": "string" }
+        "hming": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["SECRETARY", "LEADER", "ASST_LEADER", "ASST_SECRETARY", "TREASURER", "FINANCE_SECRETARY", "COMMITTEE_OB", "MEMBER"] },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "isDeveloper": { "type": "boolean" }
       },
-      "required": ["id", "hming", "phone", "role", "status"]
-    },
-    "Notice": {
-      "title": "Notice",
-      "description": "Official branch notice or announcement",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "content": { "type": "string" },
-        "date": { "type": "string" },
-        "postedBy": { "type": "string" }
-      },
-      "required": ["id", "title", "content", "date", "postedBy"]
+      "required": ["hming", "role"]
     },
     "Competition": {
       "title": "Competition",
-      "description": "Competition event",
+      "description": "Contest definition",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "lastDate": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string" },
         "status": { "type": "string", "enum": ["Active", "Closed"] }
       },
-      "required": ["id", "title", "lastDate", "status"]
+      "required": ["title", "type", "status"]
     },
     "Submission": {
       "title": "Submission",
-      "description": "Photo/video submission for competition",
+      "description": "Competition entry",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "competitionId": { "type": "string" },
-        "memberId": { "type": "string" },
-        "memberHming": { "type": "string" },
-        "title": { "type": "string" },
-        "fileUrl": { "type": "string" },
-        "fileType": { "type": "string" },
-        "submittedAt": { "type": "string" }
+        "competitionId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "memberId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 200 }
       },
-      "required": ["id", "competitionId", "memberId", "fileUrl"]
-    },
-    "BookReview": {
-      "title": "BookReview",
-      "description": "Member book review record",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "lehkhabuHming": { "type": "string" },
-        "ziaktu": { "type": "string" },
-        "review": { "type": "string" },
-        "photo": { "type": "string" },
-        "memberId": { "type": "string" },
-        "memberHming": { "type": "string" },
-        "createdAt": { "type": "string" }
-      },
-      "required": ["id", "lehkhabuHming", "memberId", "createdAt"]
-    },
-    "BookChallengeConfig": {
-      "title": "BookChallengeConfig",
-      "description": "Configurable book reading competition settings",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "targetBooks": { "type": "number" },
-        "rules": { "type": "string" },
-        "rewardDescription": { "type": "string" },
-        "isActive": { "type": "boolean" },
-        "updatedBy": { "type": "string" },
-        "updatedAt": { "type": "string" }
-      },
-      "required": ["id", "title", "targetBooks", "rules", "isActive"]
-    },
-    "GroupMember": {
-      "title": "GroupMember",
-      "description": "General group member list record",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "hming": { "type": "string" },
-        "phone": { "type": "string" },
-        "address": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "addedBy": { "type": "string" }
-      },
-      "required": ["id", "hming", "phone", "address"]
+      "required": ["competitionId", "memberId", "title"]
     }
   },
   "firestore": {
-    "/members/{memberId}": {
-      "schema": "Member",
-      "description": "Member records"
-    },
-    "/notices/{noticeId}": {
-      "schema": "Notice",
-      "description": "Branch notices and circulars"
-    },
-    "/competitions/{competitionId}": {
-      "schema": "Competition",
-      "description": "Branch photo and skill contests"
-    },
-    "/submissions/{submissionId}": {
-      "schema": "Submission",
-      "description": "Contest submissions"
-    },
-    "/book_reviews/{reviewId}": {
-      "schema": "BookReview",
-      "description": "Member book reviews"
-    },
-    "/book_challenge/{configId}": {
-      "schema": "BookChallengeConfig",
-      "description": "Dynamic book challenge configuration"
-    },
-    "/group_member_list/{groupMemberId}": {
-      "schema": "GroupMember",
-      "description": "Group member list directory"
-    }
+    "/members/{memberId}": { "schema": "Member", "description": "User profiles" },
+    "/competitions/{competitionId}": { "schema": "Competition", "description": "Contests" },
+    "/competitions/{competitionId}/submissions/{submissionId}": { "schema": "Submission", "description": "Contest entries" }
   }
 }

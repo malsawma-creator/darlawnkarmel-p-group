@@ -76,11 +76,13 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
   }, []);
 
   // --- GENERAL COMPETITIONS DATA ---
-  const competitions = Storage.getCompetitions();
+  const allCompetitions = Storage.getCompetitions();
+  const isOB = (currentUser && isOBRole(currentUser.role)) || isDeveloperUser(currentUser);
+  const competitions = allCompetitions.filter(c => isOB || c.status === 'Active');
+  
   const [selectedCompId, setSelectedCompId] = useState<string>(
     competitions[0]?.id || ''
   );
-  const isOB = (currentUser && isOBRole(currentUser.role)) || isDeveloperUser(currentUser);
   const activeComp = competitions.find((c) => c.id === selectedCompId) || competitions[0];
   const submissions = activeComp ? Storage.getSubmissions(activeComp.id) : [];
 
@@ -478,6 +480,7 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       description: newDesc.trim(),
       lastDate: newLastDate,
       createdBy: `${currentUser.hming} (${currentUser.role})`,
+      status: 'Draft',
     });
 
     setSelectedCompId(newComp.id);
@@ -919,6 +922,13 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    activeComp.status === 'Draft' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                    activeComp.status === 'Active' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                    'bg-slate-50 border-slate-200 text-slate-800'
+                  }`}>
+                    {activeComp.status}
+                  </span>
                   <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-bold text-blue-800 uppercase tracking-wider">
                     {activeComp.type}
                   </span>
@@ -928,6 +938,18 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  {activeComp.status === 'Draft' && isOB && (
+                    <button
+                      onClick={() => {
+                        Storage.updateCompetition({ ...activeComp, status: 'Active' });
+                        onDataChanged();
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-500 transition shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Publish Contest</span>
+                    </button>
+                  )}
                   <span className="text-[11px] text-slate-400">
                     Organized by: <strong className="text-slate-700">{activeComp.createdBy}</strong>
                   </span>

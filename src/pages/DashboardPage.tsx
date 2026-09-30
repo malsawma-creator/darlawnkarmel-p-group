@@ -278,9 +278,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         return (
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <Sparkles className="w-4 h-4 text-rose-600" />
-                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">Announcements</h2>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-rose-600" />
+                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">Announcements</h2>
+                </div>
+                <button onClick={onDataChanged} className="p-1 rounded-full text-slate-400 hover:bg-slate-100 transition" title="Refresh">
+                   <Clock className="w-3 h-3" />
+                </button>
               </div>
               {noticesFeed.length === 0 ? (
                 <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs text-slate-400 text-center">No notices at the moment.</div>

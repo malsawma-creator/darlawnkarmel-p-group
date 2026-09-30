@@ -110,6 +110,7 @@ export interface Member {
   joinedDate?: string;
   avatarUrl?: string;
   photoUrl?: string;
+  notificationsEnabled?: boolean;
 }
 
 export interface GroupMember {
@@ -149,7 +150,7 @@ export interface Competition {
   lastDate: string;
   createdBy: string;
   createdAt: string;
-  status: 'Active' | 'Closed';
+  status: 'Draft' | 'Active' | 'Closed';
   quizData?: {
     timerSeconds?: number;
     questions: {

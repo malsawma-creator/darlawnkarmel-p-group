@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Member, isDeveloperUser, ROLE_LABELS } from '../types';
 import { Storage } from '../utils/storage';
+import { requestNotificationToken } from '../utils/firebaseService';
 import { supabase, runHardcoreDemoCleanup } from '../utils/supabase';
 import { MemberAvatar } from '../components/MemberAvatar';
 import { AvatarPreviewModal, AvatarPreviewData } from '../components/AvatarPreviewModal';
@@ -323,6 +324,38 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 onChange={(e) => setEditHming(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                Notifications
+              </label>
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200">
+                <span className="text-xs font-semibold text-slate-700">Push Notifications</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const enabled = !currentUser?.notificationsEnabled;
+                    if (enabled) {
+                      const permission = await Notification.requestPermission();
+                      if (permission !== 'granted') {
+                        alert('Browser-ah notification i block tlat a, settings-ah rawn en nawn leh rawh.');
+                        return;
+                      }
+                      // VAPID Key will be inserted here
+                      const token = await requestNotificationToken('YOUR_VAPID_KEY_HERE');
+                      if (token) {
+                         // TODO: Store token in Firestore for this user
+                      }
+                    }
+                    Storage.updateMember({ ...currentUser!, notificationsEnabled: enabled });
+                    onDataChanged();
+                  }}
+                  className={`w-10 h-5 rounded-full p-0.5 transition ${currentUser?.notificationsEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition ${currentUser?.notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
             </div>
 
             <div>

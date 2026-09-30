@@ -766,22 +766,35 @@ export const FinancePage: React.FC<FinancePageProps> = ({
       {/* TAB 3: PAYMENT RECEIPTS AUDIT LOG */}
       {activeTab === 'transactions' && (
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-            All Payment Receipts ({payments.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+              All Payment Receipts ({payments.length})
+            </h3>
+            <div className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1 rounded-full">
+              Total: ₹{payments.reduce((acc, p) => acc + p.amount, 0).toLocaleString()}
+            </div>
+          </div>
+          
+          <input
+            type="text"
+            placeholder="Search member name or notes..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white py-2 px-3 text-xs font-medium text-slate-900 focus:border-blue-600 focus:outline-none"
+          />
 
           <div className="space-y-2.5">
-            {payments.map((p) => (
+            {payments.filter(p => p.memberHming.toLowerCase().includes(searchTerm.toLowerCase()) || p.notes?.toLowerCase().includes(searchTerm.toLowerCase())).map((p) => (
               <div
                 key={p.id}
-                className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm flex items-center justify-between text-xs"
+                className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm flex items-center justify-between text-xs hover:border-blue-200 transition"
               >
                 <div>
                   <div className="font-bold text-slate-900 text-sm">
                     {p.memberHming}
                   </div>
                   <div className="text-slate-500 text-[11px]">
-                    Method: <strong className="text-blue-700">{p.paymentMethod}</strong> • Date: {p.date}
+                    Method: <strong className="text-blue-700">{p.paymentMethod}</strong> • Date: <span className="font-mono text-slate-600">{p.date}</span>
                   </div>
                   {p.notes && <p className="text-slate-500 text-[11px] italic mt-0.5">"{p.notes}"</p>}
                 </div>

@@ -13,6 +13,7 @@ import {
   writeBatch,
   setLogLevel 
 } from 'firebase/firestore';
+import { getMessaging, getToken } from 'firebase/messaging';
 import { safeSetItem } from './safeStorage';
 
 // Silence internal firestore reconnection logs
@@ -45,6 +46,17 @@ try {
 }
 
 export const db = firestoreInstance;
+export const messaging = getMessaging(app);
+
+export async function requestNotificationToken(vapidKey: string): Promise<string | null> {
+  try {
+    const token = await getToken(messaging, { vapidKey });
+    return token;
+  } catch (error) {
+    console.error('Error getting notification token:', error);
+    return null;
+  }
+}
 
 export const COLLECTIONS = {
   MEMBERS: 'members',
