@@ -52,7 +52,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const canEdit = isOB || isDev;
 
   // Feed Filter state
-  const [feedFilter, setFeedFilter] = useState<'all' | 'notices' | 'photos' | 'info'>('all');
+  const [feedFilter, setFeedFilter] = useState<'all' | 'notices' | 'competitions' | 'info'>('all');
 
   // Custom Banner State
   const [bannerBg, setBannerBg] = useState<string | null>(Storage.getCustomBannerBg());
@@ -195,13 +195,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         const notices = Storage.getNotices();
         const records = Storage.getRecords();
         const competitions = Storage.getCompetitions();
+        const meetings = Storage.getMeetings();
 
-        const noticesFeed = [
+        const allFeedItems = [
           ...notices.map((n) => ({
             id: n.id,
             type: 'notice' as const,
             badge: 'NOTICE',
-            badgeClass: 'bg-rose-100 text-rose-700 border border-rose-200',
+            badgeClass: 'bg-rose-50 text-rose-700 border border-rose-100',
+            dotClass: 'bg-rose-500 ring-4 ring-rose-50',
             title: n.title,
             snippet: n.content,
             timestamp: new Date(n.date || Date.now()).getTime(),
@@ -210,28 +212,60 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           })),
           ...competitions.map((c) => ({
             id: c.id,
-            type: 'contest' as const,
-            badge: 'CONTEST',
-            badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200',
-            title: `New Contest: ${c.title}`,
+            type: 'competitions' as const,
+            badge: c.type === 'quiz' ? 'QUIZ' : 'COMPETITION',
+            badgeClass: 'bg-amber-50 text-amber-700 border border-amber-100',
+            dotClass: 'bg-amber-500 ring-4 ring-amber-50',
+            title: c.title,
             snippet: c.description,
             timestamp: new Date(c.createdAt || Date.now()).getTime(),
-            path: '/intihsiakna',
+            path: `/competitions/${c.id}`,
             raw: c,
-          }))
+          })),
+          ...records.map((r) => ({
+            id: r.id,
+            type: 'info' as const,
+            badge: 'RECORD',
+            badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+            dotClass: 'bg-emerald-500 ring-4 ring-emerald-50',
+            title: r.title,
+            snippet: r.content,
+            timestamp: new Date(r.date || Date.now()).getTime(),
+            path: `/information/${r.id}`,
+            raw: r,
+          })),
+          ...meetings.map((m) => ({
+            id: m.id,
+            type: 'info' as const,
+            badge: 'MEETING',
+            badgeClass: 'bg-blue-50 text-blue-700 border border-blue-100',
+            dotClass: 'bg-blue-500 ring-4 ring-blue-50',
+            title: m.title,
+            snippet: m.location ? `Meeting Hmun: ${m.location}` : 'OB & Committee Meeting',
+            timestamp: new Date(m.dateTime || Date.now()).getTime(),
+            path: `/meetings/${m.id}`,
+            raw: m,
+          })),
         ].sort((a, b) => b.timestamp - a.timestamp);
 
-        const recordsFeed = records.map((r) => ({
-          id: r.id,
-          type: 'info' as const,
-          badge: 'INFO',
-          badgeClass: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-          title: r.title,
-          snippet: r.content,
-          timestamp: new Date(r.date || Date.now()).getTime(),
-          path: `/information/${r.id}`,
-          raw: r,
-        })).sort((a, b) => b.timestamp - a.timestamp);
+        const noticesCount = allFeedItems.filter(i => i.type === 'notice').length;
+        const competitionsCount = allFeedItems.filter(i => i.type === 'competitions').length;
+        const infoCount = allFeedItems.filter(i => i.type === 'info').length;
+
+        const filteredItems = allFeedItems.filter(item => {
+          if (feedFilter === 'notices') return item.type === 'notice';
+          if (feedFilter === 'competitions') return item.type === 'competitions';
+          if (feedFilter === 'info') return item.type === 'info';
+          return true;
+        }).slice(0, 20);
+
+        const now = Date.now();
+        const oneDay = 86400000;
+        const oneWeek = oneDay * 7;
+
+        const todayItems = filteredItems.filter((i) => (now - i.timestamp) < oneDay);
+        const thisWeekItems = filteredItems.filter((i) => (now - i.timestamp) >= oneDay && (now - i.timestamp) < oneWeek);
+        const earlierItems = filteredItems.filter((i) => (now - i.timestamp) >= oneWeek);
 
         const getRelativeTime = (ts: number) => {
           const diffMs = Date.now() - ts;
@@ -246,65 +280,150 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
         };
 
-        const renderItem = (item: any) => (
-          <div
-            key={item.id}
-            onClick={() => {
-              if (item.type === 'contest') {
-                onNavigate('intihsiakna');
-              } else {
-                window.location.hash = item.path;
-                onNavigate('records');
-              }
-            }}
-            className="group flex items-start gap-3 cursor-pointer rounded-xl border border-slate-100 bg-white p-3 shadow-2xs transition hover:shadow-xs hover:border-blue-200"
-          >
-            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${item.type === 'notice' ? 'bg-rose-500' : item.type === 'contest' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${item.badgeClass}`}>
-                  {item.badge}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
-                  {getRelativeTime(item.timestamp)}
-                </span>
+        const renderCard = (item: any) => {
+          return (
+            <div
+              key={item.id}
+              onClick={() => {
+                if (item.type === 'notice' || item.type === 'info') {
+                  if (item.badge === 'MEETING') {
+                    onNavigate('members');
+                  } else {
+                    onNavigate('records');
+                  }
+                } else if (item.type === 'competitions') {
+                  try {
+                    sessionStorage.setItem('kpg_intihsiakna_tab', item.badge === 'QUIZ' ? 'quizzes' : 'contests');
+                  } catch {}
+                  onNavigate('intihsiakna');
+                }
+              }}
+              className="group relative flex items-start gap-3.5 cursor-pointer rounded-2xl border border-slate-100 bg-white p-4 shadow-xs transition hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5"
+            >
+              {/* Timeline Dot */}
+              <div className={`mt-1.5 w-3 h-3 rounded-full shrink-0 z-10 ${item.dotClass}`} />
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${item.badgeClass}`}>
+                      {item.badge}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition line-clamp-1">
+                      {item.title}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap font-mono">
+                      {getRelativeTime(item.timestamp)}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition" />
+                  </div>
+                </div>
+
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {item.snippet}
+                  </p>
+                </div>
               </div>
-              <h3 className="text-xs font-bold text-slate-900 mt-1 line-clamp-1">{item.title}</h3>
-              <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{item.snippet}</p>
             </div>
-          </div>
-        );
+          );
+        };
 
         return (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 px-1">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-rose-600" />
-                  <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">Announcements</h2>
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
                 </div>
-                <button onClick={onDataChanged} className="p-1 rounded-full text-slate-400 hover:bg-slate-100 transition" title="Refresh">
-                   <Clock className="w-3 h-3" />
-                </button>
+                <h2 className="text-base font-black tracking-tight text-slate-900">
+                  Karmel P Group Updates
+                </h2>
               </div>
-              {noticesFeed.length === 0 ? (
-                <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs text-slate-400 text-center">No notices at the moment.</div>
-              ) : (
-                <div className="space-y-2">{noticesFeed.slice(0, 5).map(renderItem)}</div>
-              )}
+              <span className="text-xs font-semibold text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full">
+                {allFeedItems.length} active
+              </span>
             </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <FileText className="w-4 h-4 text-emerald-700" />
-                <h2 className="text-sm font-black uppercase tracking-wider text-slate-900">Recent Records</h2>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar px-1">
+              <button
+                type="button"
+                onClick={() => setFeedFilter('all')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'all' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                All ({allFeedItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('notices')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'notices' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Notices ({noticesCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('competitions')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'competitions' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Quizzes & Competitions ({competitionsCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedFilter('info')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${feedFilter === 'info' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                Minutes & Info ({infoCount})
+              </button>
+            </div>
+
+            {filteredItems.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 shadow-sm">
+                Tun dinhmunah thuchhuah/thaw thar he filter-ah hian a la awm lo.
               </div>
-              {recordsFeed.length === 0 ? (
-                <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs text-slate-400 text-center">No records at the moment.</div>
-              ) : (
-                <div className="space-y-2">{recordsFeed.slice(0, 5).map(renderItem)}</div>
-              )}
-            </div>
+            ) : (
+              <div className="relative space-y-4 pl-1">
+                {/* Timeline vertical line */}
+                <div className="absolute left-5 top-4 bottom-4 w-0.5 bg-slate-200 pointer-events-none" />
+
+                {todayItems.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      Today
+                    </div>
+                    <div className="space-y-2.5">
+                      {todayItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+
+                {thisWeekItems.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      This Week
+                    </div>
+                    <div className="space-y-2.5">
+                      {thisWeekItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+
+                {earlierItems.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pl-8">
+                      Earlier
+                    </div>
+                    <div className="space-y-2.5">
+                      {earlierItems.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}

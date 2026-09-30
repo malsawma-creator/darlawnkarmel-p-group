@@ -117,12 +117,28 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
 
       let data;
       try {
+        const response = await fetch('/api/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: newMessages.map(m => ({ role: m.role, content: m.text })),
+            activeCompetition: activeComp || null
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+        
         data = await response.json();
       } catch (parseError) {
-        throw new Error(`Server returned invalid response (status ${response.status})`);
+        console.error("AI Chat API call failed:", parseError);
+        setChatMessages([...newMessages, { role: 'model', text: "Sorry, I'm having trouble connecting to the brain right now. Please try again in a moment." }]);
+        setIsChatSending(false);
+        return;
       }
 
-      if (response.ok) {
+      if (data) {
         let replyText = data.reply || '';
         let extractedActionData = null;
         let extractedActionType = null;
@@ -801,97 +817,6 @@ export const IntihsiaknaPage: React.FC<IntihsiaknaPageProps> = ({
       {/* ======================================================== */}
       {mainTab === 'contests' && (
         <div className="space-y-6">
-          {/* DEVELOPER ONLY: KARMEL AI CHAT AGENT PANEL */}
-          {isDeveloperUser(currentUser) && (
-            <div className="rounded-2xl border-2 border-indigo-400 bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 p-4 sm:p-5 text-white shadow-md space-y-4 animate-in slide-in-from-top-3">
-              <div className="flex items-center justify-between border-b border-indigo-500/35 pb-2.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-amber-400 flex items-center justify-center text-slate-950 font-black shadow-inner">
-                    <Sparkles className="w-5 h-5 text-amber-200" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
-                      <span>Karmel AI Assistant Agent</span>
-                      <span className="text-[9px] font-bold px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Online</span>
-                    </h3>
-                    <p className="text-[10px] text-indigo-200">Chat with AI to create, modify, or customize quizzes & competitions conversationally</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chat Message History */}
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                {chatMessages.map((msg, mIdx) => (
-                  <div
-                    key={mIdx}
-                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`max-w-[95%] rounded-2xl p-4 text-sm leading-relaxed shadow-xs ${
-                        msg.role === 'user'
-                          ? 'bg-indigo-600 text-white rounded-br-xs font-medium'
-                          : 'bg-slate-900 border border-indigo-500/30 text-indigo-100 rounded-bl-xs'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
-
-                      {/* Action Execution Button if model returned an action */}
-                      {msg.actionData && msg.actionType && (
-                        <div className="mt-4 pt-4 border-t border-indigo-500/20 space-y-3">
-                          <div className="flex items-center gap-2 text-[11px] font-bold text-amber-300 uppercase">
-                            <Award className="w-4 h-4" />
-                            <span>Action Ready: {msg.actionData.title || 'Competition Update'}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleExecuteAiAction(msg.actionType!, msg.actionData)}
-                            className="cursor-pointer w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-3 text-sm font-black text-white transition shadow"
-                          >
-                            <span>Apply Changes to App</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-slate-500 px-2 pt-1">
-                      {msg.role === 'user' ? 'You' : 'Karmel AI'}
-                    </span>
-                  </div>
-                ))}
-                {isChatSending && (
-                  <div className="flex items-center gap-3 text-sm text-indigo-300 bg-slate-900/60 p-4 rounded-2xl w-fit border border-indigo-500/20">
-                    <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    <span>Karmel AI is thinking...</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Input Box */}
-              <div className="flex flex-col gap-3 pt-3 border-t border-indigo-500/25">
-                <textarea
-                  rows={3}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendChatMessage();
-                    }
-                  }}
-                  placeholder="Ask AI to add questions, change timer, or create a quiz..."
-                  className="w-full rounded-xl border border-indigo-500/30 bg-slate-950 p-4 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  disabled={isChatSending || !chatInput.trim()}
-                  onClick={handleSendChatMessage}
-                  className="cursor-pointer rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-500 transition disabled:opacity-50 self-end"
-                >
-                  Send Message
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Competition Selector Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {competitions.map((comp) => {
