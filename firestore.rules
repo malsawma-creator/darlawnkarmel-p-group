@@ -1,43 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Global Helpers ---
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-    
-    // --- Default Deny ---
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
-
-    // --- Members (PII Isolated) ---
-    match /members/{memberId} {
-      allow get: if isSignedIn() && (isOwner(memberId) || isAdmin());
-      allow list: if isAdmin();
-      allow create: if isOwner(memberId);
-      allow update: if isOwner(memberId) && request.resource.data.keys().hasOnly(['hming', 'veng', 'phone', 'photoUrl']);
-    }
-
-    // --- Competitions ---
-    match /competitions/{competitionId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
-      
-      match /submissions/{submissionId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.memberId == request.auth.uid;
-        allow update: if isOwner(resource.data.memberId) || isAdmin();
-      }
-    }
-    
-    // --- App Notifications ---
-    match /app_notifications/{notifId} {
-      allow read, create, update, delete: if isSignedIn();
-    }
-    
-    // --- Add rules for Notices, Records, Finance, etc. ... ---
   }
 }

@@ -27,25 +27,6 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Forcefully clear the old aggressive PWA cache
-          if ('caches' in window) {
-            caches.keys().then((names) => {
-              names.forEach(name => {
-                caches.delete(name);
-              });
-            });
-          }
-          
-          // Unregister any old active service workers so the page loads fresh from network
-          navigator.serviceWorker.getRegistrations().then(registrations => {
-            registrations.forEach(registration => {
-              registration.unregister().then(() => {
-                console.log('Old Service Worker unregistered successfully.');
-              });
-            });
-          });
-
-          // Re-register the new non-caching notification service worker
           navigator.serviceWorker.register('/sw.js').catch(err => {
             console.log('SW registration note:', err);
           });

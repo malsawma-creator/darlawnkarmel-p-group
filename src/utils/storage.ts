@@ -980,6 +980,49 @@ export const Storage = {
     }
   },
 
+  async syncLocalToCloud() {
+    try {
+      const members = this.getMembers();
+      for (const m of members) {
+        if (m && m.id) {
+          await addToFirestore(COLLECTIONS.MEMBERS, m.id, m);
+        }
+      }
+      const groupMembers = this.getGroupMembers();
+      for (const gm of groupMembers) {
+        if (gm && gm.id) {
+          await addToFirestore(COLLECTIONS.GROUP_MEMBER_LIST, gm.id, gm);
+        }
+      }
+      const budgets = this.getPromiseBudgets();
+      for (const b of budgets) {
+        if (b && b.id) {
+          await addToFirestore(COLLECTIONS.PROMISE_BUDGETS, b.id, b);
+        }
+      }
+      const payments = this.getPayments();
+      for (const p of payments) {
+        if (p && p.id) {
+          await addToFirestore(COLLECTIONS.PAYMENTS, p.id, p);
+        }
+      }
+      const notices = this.getNotices();
+      for (const n of notices) {
+        if (n && n.id) {
+          await addToFirestore(COLLECTIONS.NOTICES, n.id, n);
+        }
+      }
+      const comps = this.getCompetitions();
+      for (const c of comps) {
+        if (c && c.id) {
+          await addToFirestore(COLLECTIONS.COMPETITIONS, c.id, c);
+        }
+      }
+    } catch (e) {
+      console.warn('Sync local to cloud warning:', e);
+    }
+  },
+
   async clearAllFirestoreData() {
     await clearAllFirestoreCollections();
   },

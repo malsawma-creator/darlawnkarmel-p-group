@@ -31,6 +31,8 @@ export default function App() {
     
     // Seed Firestore with initial mock data if empty
     Storage.seedInitialData().catch(console.error);
+    // Push any local items to Firestore so they are not trapped locally
+    Storage.syncLocalToCloud().catch(console.error);
 
     const user = Storage.getCurrentUser();
     setCurrentUser(user);
