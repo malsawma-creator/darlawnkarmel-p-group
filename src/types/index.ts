@@ -143,6 +143,7 @@ export interface Notice {
 }
 
 export type BibleCompetitionType =
+  | 'mixed_mode'         // 🔀 Mixed Mode (Mix vek)
   | 'mcq_classic'        // 🧠 MCQ Classic - Zawhna pangngai
   | 'verse_detective'    // 🔍 Verse Detective - Chang dik leh dik lo zawn chhuah
   | 'connect_pair'       // 🧩 Connect The Pair - Thil inzawm zawm (Left & Right)

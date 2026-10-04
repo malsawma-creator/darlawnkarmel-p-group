@@ -74,6 +74,98 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
   const [editingCompId, setEditingCompId] = useState<string | null>(null);
   const [showQuestionInspector, setShowQuestionInspector] = useState(false);
 
+  // Developer Leaderboard Edit State
+  const [editingScore, setEditingScore] = useState<LeagueScore | null>(null);
+  const [showAddScoreForm, setShowAddScoreForm] = useState(false);
+  const [editScoreName, setEditScoreName] = useState('');
+  const [editScoreVeng, setEditScoreVeng] = useState('');
+  const [editScorePoints, setEditScorePoints] = useState(0);
+  const [editScoreWeeks, setEditScoreWeeks] = useState(1);
+  const [editScoreStreak, setEditScoreStreak] = useState(1);
+
+  const answerRevealRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenEditScore = (score: LeagueScore) => {
+    setShowAddScoreForm(false);
+    setEditingScore(score);
+    setEditScoreName(score.userName || '');
+    setEditScoreVeng(score.userVeng || '');
+    setEditScorePoints(score.totalPoints || 0);
+    setEditScoreWeeks(score.weeksPlayed || 1);
+    setEditScoreStreak(score.currentStreak || 1);
+  };
+
+  const handleOpenAddScore = () => {
+    setEditingScore(null);
+    setEditScoreName('');
+    setEditScoreVeng('Darlawn');
+    setEditScorePoints(10);
+    setEditScoreWeeks(1);
+    setEditScoreStreak(1);
+    setShowAddScoreForm(true);
+  };
+
+  const handleSaveNewScore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editScoreName.trim()) return;
+    const customUserId = `manual-${Date.now()}`;
+    const newEntry: LeagueScore = {
+      id: `ls-${customUserId}`,
+      userId: customUserId,
+      userName: editScoreName.trim(),
+      userVeng: editScoreVeng.trim() || 'Darlawn',
+      totalPoints: Number(editScorePoints) || 0,
+      weeksPlayed: Number(editScoreWeeks) || 1,
+      currentStreak: Number(editScoreStreak) || 1,
+      lastPlayedWeek: activeComp?.title || 'Manual Entry',
+      history: [],
+      updatedAt: new Date().toISOString(),
+    };
+    const currentScores = Storage.getLeagueScores();
+    currentScores.push(newEntry);
+    Storage.saveLeagueScores(currentScores);
+    Storage.updateLeagueScore(newEntry);
+    setShowAddScoreForm(false);
+    onDataChanged();
+  };
+
+  const handleSaveEditScore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingScore) return;
+    Storage.updateLeagueScore({
+      ...editingScore,
+      userName: editScoreName.trim() || editingScore.userName,
+      userVeng: editScoreVeng.trim(),
+      totalPoints: Number(editScorePoints) || 0,
+      weeksPlayed: Number(editScoreWeeks) || 0,
+      currentStreak: Number(editScoreStreak) || 0,
+    });
+    setEditingScore(null);
+    onDataChanged();
+  };
+
+  const handleDeleteScoreEntry = (score: LeagueScore) => {
+    if (
+      window.confirm(
+        `Leaderboard atangin "${score.userName}" (${score.totalPoints} pts) hi paih i duh tak tak em?`
+      )
+    ) {
+      Storage.deleteLeagueScore(score.id, score.userId);
+      onDataChanged();
+    }
+  };
+
+  const handleClearLeaderboard = () => {
+    if (
+      window.confirm(
+        'Leaderboard zawng zawng hi clear vek i duh tak tak em? Member zawng zawng point a bo vek ang.'
+      )
+    ) {
+      Storage.clearAllLeagueScores();
+      onDataChanged();
+    }
+  };
+
   // Toggle publish / draft status
   const handleTogglePublish = (comp: Competition) => {
     const nextStatus = comp.status === 'Draft' ? 'Active' : 'Draft';
@@ -117,17 +209,8 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
   const [showVerseDetail, setShowVerseDetail] = useState(false);
   const [earnedPointsThisQ, setEarnedPointsThisQ] = useState(0);
 
-  // Bonus states
-  const [speedBonusAwarded, setSpeedBonusAwarded] = useState(false);
-  const [hiddenChestAwarded, setHiddenChestAwarded] = useState(false);
-  const [showChestAnimation, setShowChestAnimation] = useState(false);
-
   // Running Game Totals
   const [totalGameScore, setTotalGameScore] = useState(0);
-  const [totalSpeedBonus, setTotalSpeedBonus] = useState(0);
-  const [totalChestBonus, setTotalChestBonus] = useState(0);
-  const [streakBonus, setStreakBonus] = useState(0);
-  const [qStartTime, setQStartTime] = useState<number>(Date.now());
   const [secondsLeft, setSecondsLeft] = useState(20);
   const [isFinished, setIsFinished] = useState(false);
 
@@ -160,7 +243,6 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     if (viewMode !== 'game' || isAnswered || isFinished) return;
 
     setSecondsLeft(activeComp?.quizData?.timerSeconds || activeComp?.timerSeconds || 20);
-    setQStartTime(Date.now());
 
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -184,9 +266,332 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     setEarnedPointsThisQ(0);
   };
 
-  // Convert raw paste box into BibleQuestion array
+  // 8 Separate Templates & Placeholders per Competition Type (including Mixed Mode)
+  const COMPETITION_TYPE_CONFIG: Record<
+    BibleCompetitionType,
+    {
+      formatTitle: string;
+      placeholder: string;
+      template: string;
+    }
+  > = {
+    mixed_mode: {
+      formatTitle: 'BIG PASTE BOX - MIXED MODE (MIX VEK) FORMAT',
+      placeholder:
+        'MCQ: Question | A | B | C | D | Answer | VerseRef | VerseText\nSCRAMBLE: ScrambledWord | CorrectWord | Hint | VerseRef\nDETECTIVE: VerseText | True/False | CorrectText | VerseRef\nPAIR: LeftItem | RightItem\nEMOJI: EmojiClue | Question | A | B | C | D | Answer\nLIE: Statement1 | Statement2 | Statement3 | LieNumber | Explanation\nBLANK: Sentence with ___ | CorrectWord | Wrong1 | Wrong2 | VerseRef',
+      template:
+        'MCQ: Pathianin engnge a siam hmasa ber? | Lei | Van | Eng | Tuialhthei | C | Genesis 1:3 | Pathianin Eng awm rawh se a ti a\nSCRAMBLE: NAPTHIA | PATHIAN | Khawvel siamtu | Genesis 1:1\nDETECTIVE: Lalpa chu mi vengtu a ni | False | Lalpa chu ka beram vengtu a ni | Sam 23:1\nPAIR: Mosea | Exodus\nPAIR: Davida | Sam\nPAIR: Petera | Tirhkoh\nPAIR: Paula | Rome\nEMOJI: Tui chunga kal emoji | Tu nge tui chunga kal? | Mosea | Elia | Isua | Jona | C\nLIE: Davida chu Goliatha thattu a ni | Davida chu Saula fapa a ni | Davida chu Bethlehem a piang a ni | 2 | Davida chu Isai-a fapa a ni\nBLANK: Amah chu ___ leh Omega a ni | Alpha | Beta | Gamma | Thupuan 22:13',
+    },
+    mcq_classic: {
+      formatTitle: 'BIG PASTE BOX - MCQ CLASSIC FORMAT',
+      placeholder: 'Question | A | B | C | D | Answer | VerseRef | VerseText',
+      template:
+        'Pathianin engnge a siam hmasa ber? | Lei | Van | Eng | Tuialhthei | C | Genesis 1:3 | Pathianin Eng awm rawh se a ti a',
+    },
+    verse_detective: {
+      formatTitle: 'BIG PASTE BOX - VERSE DETECTIVE FORMAT',
+      placeholder: 'VerseText | True/False | CorrectText | VerseRef',
+      template:
+        'Lalpa chu mi vengtu a ni | False | Lalpa chu ka beram vengtu a ni | Sam 23:1',
+    },
+    word_scramble: {
+      formatTitle: 'BIG PASTE BOX - WORD SCRAMBLE FORMAT',
+      placeholder: 'ScrambledWord | CorrectWord | Hint | VerseRef',
+      template: 'NAPTHIA | PATHIAN | Khawvel siamtu | Genesis 1:1',
+    },
+    connect_pair: {
+      formatTitle: 'BIG PASTE BOX - CONNECT THE PAIR FORMAT',
+      placeholder: 'LeftItem | RightItem',
+      template: 'Mosea | Exodus\nDavida | Sam\nPetera | Tirhkoh\nPaula | Rome',
+    },
+    emoji_story: {
+      formatTitle: 'BIG PASTE BOX - EMOJI STORY FORMAT',
+      placeholder: 'EmojiClue | Question | A | B | C | D | Answer',
+      template:
+        'Tui chunga kal emoji | Tu nge tui chunga kal? | Mosea | Elia | Isua | Jona | C',
+    },
+    two_truths_one_lie: {
+      formatTitle: 'BIG PASTE BOX - 2 TRUTHS 1 LIE FORMAT',
+      placeholder: 'Statement1 | Statement2 | Statement3 | LieNumber | Explanation',
+      template:
+        'Davida chu Goliatha thattu a ni | Davida chu Saula fapa a ni | Davida chu Bethlehem a piang a ni | 2 | Davida chu Isai-a fapa a ni',
+    },
+    fill_blank: {
+      formatTitle: 'BIG PASTE BOX - FILL THE BLANK FORMAT',
+      placeholder: 'Sentence with blank | CorrectWord | Wrong1 | Wrong2 | VerseRef',
+      template: 'Amah chu ___ leh Omega a ni | Alpha | Beta | Gamma | Thupuan 22:13',
+    },
+  };
+
+  const currentTypeConfig =
+    COMPETITION_TYPE_CONFIG[compType] || COMPETITION_TYPE_CONFIG.mcq_classic;
+
+  // Helper to show total count by type in preview (e.g., "5 MCQ, 5 Scramble, 5 Detective")
+  const getQuestionTypeBreakdown = (qList: BibleQuestion[]): string => {
+    const counts: Record<string, number> = {
+      MCQ: 0,
+      Scramble: 0,
+      Detective: 0,
+      Pair: 0,
+      Emoji: 0,
+      Lie: 0,
+      Blank: 0,
+    };
+
+    qList.forEach((q) => {
+      switch (q.type) {
+        case 'mcq_classic':
+          counts.MCQ++;
+          break;
+        case 'word_scramble':
+          counts.Scramble++;
+          break;
+        case 'verse_detective':
+          counts.Detective++;
+          break;
+        case 'connect_pair':
+          counts.Pair++;
+          break;
+        case 'emoji_story':
+          counts.Emoji++;
+          break;
+        case 'two_truths_one_lie':
+          counts.Lie++;
+          break;
+        case 'fill_blank':
+          counts.Blank++;
+          break;
+        default:
+          counts.MCQ++;
+          break;
+      }
+    });
+
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([label, count]) => `${count} ${label}`)
+      .join(', ');
+  };
+
+  // Validate and parse a single non-pair question line for a given question type
+  const parseSingleQuestionLine = (
+    targetType: Exclude<BibleCompetitionType, 'mixed_mode' | 'connect_pair'>,
+    parts: string[],
+    lineNum: number,
+    qIndex: number
+  ): { question?: BibleQuestion; error?: string } => {
+    if (targetType === 'mcq_classic') {
+      // Format: Question | A | B | C | D | Answer | VerseRef | VerseText
+      if (parts.length < 8 || parts.slice(0, 8).some((p) => !p)) {
+        return {
+          error: `Line ${lineNum} format a dik lo. MCQ format tur: Question | A | B | C | D | Answer | VerseRef | VerseText`,
+        };
+      }
+      const question = parts[0];
+      const options = [parts[1], parts[2], parts[3], parts[4]];
+      const ansKey = parts[5].toUpperCase();
+      let correctIdx = -1;
+      if (ansKey === 'A' || ansKey === '1') correctIdx = 0;
+      else if (ansKey === 'B' || ansKey === '2') correctIdx = 1;
+      else if (ansKey === 'C' || ansKey === '3') correctIdx = 2;
+      else if (ansKey === 'D' || ansKey === '4') correctIdx = 3;
+      else {
+        correctIdx = options.findIndex(
+          (o) => o.toLowerCase() === parts[5].toLowerCase()
+        );
+      }
+
+      if (correctIdx === -1) {
+        return {
+          error: `Line ${lineNum}-ah Answer ("${parts[5]}") a dik lo. A, B, C, emaw D chhu lut rawh.`,
+        };
+      }
+
+      return {
+        question: {
+          id: `q-paste-${qIndex}`,
+          type: 'mcq_classic',
+          question,
+          options,
+          correctAnswer: correctIdx,
+          verseRef: parts[6],
+          verseText: parts[7],
+          points: pointsPerQ,
+          hasHiddenChest: qIndex === 1,
+        },
+      };
+    }
+
+    if (targetType === 'verse_detective') {
+      // Format: VerseText | True/False | CorrectText | VerseRef
+      if (parts.length !== 4 || parts.slice(0, 4).some((p) => !p)) {
+        return {
+          error: `Line ${lineNum} format a dik lo. DETECTIVE format tur: VerseText | True/False | CorrectText | VerseRef`,
+        };
+      }
+      const tfRaw = parts[1].toLowerCase();
+      const isValidBool = ['true', 'false', 'dik', 'diklo', 'dik lo'].includes(tfRaw);
+      if (!isValidBool) {
+        return {
+          error: `Line ${lineNum}-ah True/False ("${parts[1]}") a dik lo. True emaw False chhu lut rawh.`,
+        };
+      }
+      const isTrue = tfRaw === 'true' || tfRaw === 'dik';
+
+      return {
+        question: {
+          id: `q-paste-${qIndex}`,
+          type: 'verse_detective',
+          question: parts[0],
+          isCorrect: isTrue,
+          correctionNote: parts[2],
+          verseRef: parts[3],
+          verseText: parts[2],
+          points: pointsPerQ,
+          hasHiddenChest: qIndex === 1,
+        },
+      };
+    }
+
+    if (targetType === 'word_scramble') {
+      // Format: ScrambledWord | CorrectWord | Hint | VerseRef
+      if (parts.length !== 4 || parts.slice(0, 4).some((p) => !p)) {
+        return {
+          error: `Line ${lineNum} format a dik lo. SCRAMBLE format tur: ScrambledWord | CorrectWord | Hint | VerseRef`,
+        };
+      }
+      return {
+        question: {
+          id: `q-paste-${qIndex}`,
+          type: 'word_scramble',
+          question: `Hint: ${parts[2]}`,
+          scrambledWord: parts[0].toUpperCase(),
+          correctWord: parts[1].toUpperCase(),
+          verseRef: parts[3],
+          verseText: `${parts[2]} (${parts[1].toUpperCase()})`,
+          points: pointsPerQ,
+          hasHiddenChest: qIndex === 1,
+        },
+      };
+    }
+
+    if (targetType === 'emoji_story') {
+      // Format: EmojiClue | Question | A | B | C | D | Answer
+      if (parts.length !== 7 || parts.slice(0, 7).some((p) => !p)) {
+        return {
+          error: `Line ${lineNum} format a dik lo. EMOJI format tur: EmojiClue | Question | A | B | C | D | Answer`,
+        };
+      }
+      const emojiClue = parts[0];
+      const questionText = parts[1];
+      const options = [parts[2], parts[3], parts[4], parts[5]];
+      const ansKey = parts[6].toUpperCase();
+      let correctIdx = -1;
+      if (ansKey === 'A' || ansKey === '1') correctIdx = 0;
+      else if (ansKey === 'B' || ansKey === '2') correctIdx = 1;
+      else if (ansKey === 'C' || ansKey === '3') correctIdx = 2;
+      else if (ansKey === 'D' || ansKey === '4') correctIdx = 3;
+      else {
+        correctIdx = options.findIndex(
+          (o) => o.toLowerCase() === parts[6].toLowerCase()
+        );
+      }
+
+      if (correctIdx === -1) {
+        return {
+          error: `Line ${lineNum}-ah Answer ("${parts[6]}") a dik lo. A, B, C, emaw D chhu lut rawh.`,
+        };
+      }
+
+      return {
+        question: {
+          id: `q-paste-${qIndex}`,
+          type: 'emoji_story',
+          question: `${emojiClue} — ${questionText}`,
+          options,
+          correctAnswer: correctIdx,
+          verseRef: 'Emoji Bible Story',
+          verseText: `${questionText} — Chhanna dik: ${options[correctIdx]}`,
+          points: pointsPerQ,
+          hasHiddenChest: qIndex === 1,
+        },
+      };
+    }
+
+    if (targetType === 'two_truths_one_lie') {
+      // Format: Statement1 | Statement2 | Statement3 | LieNumber | Explanation
+      if (parts.length !== 5 || parts.slice(0, 5).some((p) => !p)) {
+        return {
+          error: `Line ${lineNum} format a dik lo. LIE format tur: Statement1 | Statement2 | Statement3 | LieNumber | Explanation`,
+        };
+      }
+      const lieNumRaw = parts[3].toUpperCase();
+      let lieIdx = -1;
+      if (lieNumRaw === '1' || lieNumRaw === 'A') lieIdx = 0;
+      else if (lieNumRaw === '2' || lieNumRaw === 'B') lieIdx = 1;
+      else if (lieNumRaw === '3' || lieNumRaw === 'C') lieIdx = 2;
+
+      if (lieIdx === -1) {
+        return {
+          error: `Line ${lineNum}-ah LieNumber ("${parts[3]}") a dik lo. 1, 2, emaw 3 chhu lut rawh.`,
+        };
+      }
+
+      return {
+        question: {
+          id: `q-paste-${qIndex}`,
+          type: 'two_truths_one_lie',
+          question: 'He thu 3 zinga a DAW (Lie) ber thlang chhuak rawh:',
+          statements: [
+            { text: parts[0], isLie: lieIdx === 0 },
+            { text: parts[1], isLie: lieIdx === 1 },
+            { text: parts[2], isLie: lieIdx === 2 },
+          ],
+          lieExplanation: parts[4],
+          verseRef: '2 Truths 1 Lie',
+          verseText: parts[4],
+          points: pointsPerQ,
+          hasHiddenChest: qIndex === 1,
+        },
+      };
+    }
+
+    // fill_blank
+    // Format: Sentence with blank | CorrectWord | Wrong1 | Wrong2 | VerseRef
+    if (parts.length !== 5 || parts.slice(0, 5).some((p) => !p)) {
+      return {
+        error: `Line ${lineNum} format a dik lo. BLANK format tur: Sentence with ___ | CorrectWord | Wrong1 | Wrong2 | VerseRef`,
+      };
+    }
+    const sentence = parts[0];
+    const correctWord = parts[1];
+    const rawOptions = [correctWord, parts[2], parts[3]];
+    const shuffledOptions = [...rawOptions].sort(() => Math.random() - 0.5);
+    const correctIdx = shuffledOptions.indexOf(correctWord);
+
+    return {
+      question: {
+        id: `q-paste-${qIndex}`,
+        type: 'fill_blank',
+        question: sentence,
+        options: shuffledOptions,
+        correctAnswer: correctIdx >= 0 ? correctIdx : 0,
+        correctWord,
+        verseRef: parts[4],
+        verseText: sentence.includes('___')
+          ? sentence.replace('___', correctWord)
+          : `${sentence} (${correctWord})`,
+        points: pointsPerQ,
+        hasHiddenChest: qIndex === 1,
+      },
+    };
+  };
+
+  // Convert raw paste box into BibleQuestion array (strictly validating selected type or Mixed Mode tags)
   const handleParsePasteBox = () => {
     setPasteError('');
+    setParsedQuestions([]);
+
     if (!rawPasteBox.trim()) {
       setPasteError('Paste box a ruak. Khawngaihin thu chhu lut rawh.');
       return;
@@ -197,156 +602,164 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
       .map((l) => l.trim())
       .filter((l) => l.length > 0 && !l.startsWith('//') && !l.startsWith('#'));
 
+    if (lines.length === 0) {
+      setPasteError('Paste box a ruak. Khawngaihin thu chhu lut rawh.');
+      return;
+    }
+
     const parsed: BibleQuestion[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const parts = lines[i].split('|').map((p) => p.trim());
+    // 1. MIXED MODE: Each line starts with TYPE tag (MCQ:, SCRAMBLE:, DETECTIVE:, PAIR:, EMOJI:, LIE:, BLANK:)
+    if (compType === 'mixed_mode') {
+      const tagMap: Record<string, Exclude<BibleCompetitionType, 'mixed_mode'>> = {
+        MCQ: 'mcq_classic',
+        SCRAMBLE: 'word_scramble',
+        DETECTIVE: 'verse_detective',
+        PAIR: 'connect_pair',
+        EMOJI: 'emoji_story',
+        LIE: 'two_truths_one_lie',
+        BLANK: 'fill_blank',
+      };
 
-      if (compType === 'word_scramble') {
-        // Format: Scrambled | Correct | VerseRef | VerseText
-        if (parts.length >= 3) {
-          parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'word_scramble',
-            question: `Thumal chhiar dik rawh:`,
-            scrambledWord: parts[0].toUpperCase(),
-            correctWord: parts[1].toUpperCase(),
-            verseRef: parts[2] || '',
-            verseText: parts[3] || parts[2] || '',
-            points: pointsPerQ,
-            hasHiddenChest: i === 0,
-          });
-        }
-      } else if (compType === 'verse_detective') {
-        // Format: Statement | Dik/Diklo | CorrectionNote | VerseRef | VerseText
-        if (parts.length >= 3) {
-          const isTrue =
-            parts[1].toLowerCase().includes('dik') &&
-            !parts[1].toLowerCase().includes('dik lo') &&
-            !parts[1].toLowerCase().includes('diklo') &&
-            !parts[1].toLowerCase().includes('false');
+      let pendingPairs: { left: string; right: string }[] = [];
 
+      const flushPendingPairs = () => {
+        if (pendingPairs.length === 0) return;
+        const chunkSize = pendingPairs.length <= 6 ? pendingPairs.length : 4;
+        for (let c = 0; c < pendingPairs.length; c += chunkSize) {
+          const chunk = pendingPairs.slice(c, c + chunkSize);
           parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'verse_detective',
-            question: parts[0],
-            isCorrect: isTrue,
-            correctionNote: parts[2] || '',
-            verseRef: parts[3] || parts[2] || '',
-            verseText: parts[4] || parts[3] || '',
-            points: pointsPerQ,
-          });
-        }
-      } else if (compType === 'two_truths_one_lie') {
-        // Format: Truth1 | Truth2 | Lie | LieExplanation | VerseRef | VerseText
-        if (parts.length >= 4) {
-          parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'two_truths_one_lie',
-            question: 'He thu 3 zinga a DAW (Lie) ber thlang chhuak rawh:',
-            statements: [
-              { text: parts[0], isLie: false },
-              { text: parts[1], isLie: false },
-              { text: parts[2], isLie: true },
-            ].sort(() => Math.random() - 0.5),
-            lieExplanation: parts[3],
-            verseRef: parts[4] || '',
-            verseText: parts[5] || parts[4] || '',
-            points: pointsPerQ,
-          });
-        }
-      } else if (compType === 'connect_pair') {
-        // Format: Left1:Right1, Left2:Right2 | VerseRef | VerseText
-        if (parts.length >= 2) {
-          const pairsRaw = parts[0].split(',');
-          const pairList = pairsRaw
-            .map((p) => {
-              const [left, right] = p.split(':').map((s) => s.trim());
-              return { left: left || '', right: right || '' };
-            })
-            .filter((p) => p.left && p.right);
-
-          parsed.push({
-            id: `q-paste-${i + 1}`,
+            id: `q-paste-${parsed.length + 1}`,
             type: 'connect_pair',
             question: 'A hnuaia mi te hi a inmil zelin zawm rawh le:',
-            pairs: pairList,
-            verseRef: parts[1] || '',
-            verseText: parts[2] || parts[1] || '',
+            pairs: chunk,
+            verseRef: 'Bible Inzawmna',
+            verseText: chunk.map((p) => `${p.left} ➔ ${p.right}`).join(' • '),
             points: pointsPerQ,
+            hasHiddenChest: parsed.length === 0,
           });
         }
-      } else if (compType === 'fill_blank') {
-        // Format: Sentence with ___ | Answer | OptB | OptC | OptD | VerseRef | VerseText
-        if (parts.length >= 4) {
-          const sentence = parts[0];
-          const correctWord = parts[1];
-          const options = [correctWord, parts[2], parts[3], parts[4] || 'Chhandamna'].filter(Boolean);
-          parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'fill_blank',
-            question: sentence,
-            options: options.sort(() => Math.random() - 0.5),
-            correctAnswer: 0, // adjusted below
-            correctWord: correctWord,
-            verseRef: parts[parts.length - 2] || '',
-            verseText: parts[parts.length - 1] || '',
-            points: pointsPerQ,
-          });
-        }
-      } else if (compType === 'emoji_story') {
-        // Format: Emojis | StoryTitle | OptB | OptC | OptD | VerseRef | VerseText
-        if (parts.length >= 4) {
-          const emojis = parts[0];
-          const correctStory = parts[1];
-          const options = [correctStory, parts[2], parts[3], parts[4] || 'Davida leh Goliaha'].filter(Boolean);
-          parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'emoji_story',
-            question: emojis,
-            options: options.sort(() => Math.random() - 0.5),
-            correctAnswer: 0,
-            verseRef: parts[parts.length - 2] || '',
-            verseText: parts[parts.length - 1] || '',
-            points: pointsPerQ,
-          });
-        }
-      } else {
-        // Default MCQ Classic: Question | A | B | C | D | Answer | VerseRef | VerseText
-        if (parts.length >= 6) {
-          const question = parts[0];
-          const options = [parts[1], parts[2], parts[3], parts[4]];
-          const ansKey = parts[5].toUpperCase();
-          let correctIdx = 0;
-          if (ansKey === 'A' || ansKey === '1') correctIdx = 0;
-          else if (ansKey === 'B' || ansKey === '2') correctIdx = 1;
-          else if (ansKey === 'C' || ansKey === '3') correctIdx = 2;
-          else if (ansKey === 'D' || ansKey === '4') correctIdx = 3;
-          else {
-            const foundIdx = options.findIndex(
-              (o) => o.toLowerCase() === parts[5].toLowerCase()
-            );
-            if (foundIdx !== -1) correctIdx = foundIdx;
-          }
+        pendingPairs = [];
+      };
 
-          parsed.push({
-            id: `q-paste-${i + 1}`,
-            type: 'mcq_classic',
-            question,
-            options,
-            correctAnswer: correctIdx,
-            verseRef: parts[6] || '',
-            verseText: parts[7] || parts[6] || '',
-            points: pointsPerQ,
-            hasHiddenChest: i === 1,
-          });
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) {
+          setPasteError(
+            `Line ${i + 1}-ah TYPE tag a awm lo. Mixed Mode-ah chuan line tin hi MCQ:, SCRAMBLE:, DETECTIVE:, PAIR:, EMOJI:, LIE:, emaw BLANK: in a intan tur a ni.`
+          );
+          return;
         }
+
+        const rawTag = line.slice(0, colonIdx).trim().toUpperCase();
+        const mappedType = tagMap[rawTag];
+        if (!mappedType) {
+          setPasteError(
+            `Line ${i + 1}-ah TYPE tag ("${rawTag}:") a dik lo. Tag hman theihte: MCQ:, SCRAMBLE:, DETECTIVE:, PAIR:, EMOJI:, LIE:, BLANK:`
+          );
+          return;
+        }
+
+        const contentAfterTag = line.slice(colonIdx + 1).trim();
+        const parts = contentAfterTag.split('|').map((p) => p.trim());
+
+        if (mappedType === 'connect_pair') {
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            setPasteError(
+              `Line ${i + 1} format a dik lo. PAIR format tur: PAIR: LeftItem | RightItem`
+            );
+            return;
+          }
+          pendingPairs.push({ left: parts[0], right: parts[1] });
+        } else {
+          flushPendingPairs();
+          const result = parseSingleQuestionLine(
+            mappedType,
+            parts,
+            i + 1,
+            parsed.length + 1
+          );
+          if (result.error) {
+            setPasteError(result.error);
+            return;
+          }
+          if (result.question) {
+            parsed.push(result.question);
+          }
+        }
+      }
+
+      flushPendingPairs();
+
+      if (parsed.length === 0) {
+        setPasteError('Zawhna convert theih a awm lo. Khawngaihin format enfiah rawh.');
+        return;
+      }
+
+      setParsedQuestions(parsed);
+      setPasteError('');
+      return;
+    }
+
+    // 2. SINGLE-TYPE CONNECT THE PAIR: each line is "LeftItem | RightItem"
+    if (compType === 'connect_pair') {
+      const pairList: { left: string; right: string }[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        const cleanLine = lines[i].replace(/^PAIR\s*:\s*/i, '');
+        const parts = cleanLine.split('|').map((p) => p.trim());
+        if (parts.length !== 2 || !parts[0] || !parts[1]) {
+          setPasteError(
+            `Line ${i + 1} format a dik lo. Connect The Pair format tur: LeftItem | RightItem`
+          );
+          return;
+        }
+        pairList.push({ left: parts[0], right: parts[1] });
+      }
+
+      if (pairList.length < 2) {
+        setPasteError(
+          'Connect The Pair-ah hian inmil tur (LeftItem | RightItem) line 2 tal a awm tur a ni.'
+        );
+        return;
+      }
+
+      const chunkSize = pairList.length <= 6 ? pairList.length : 4;
+      for (let c = 0; c < pairList.length; c += chunkSize) {
+        const chunk = pairList.slice(c, c + chunkSize);
+        parsed.push({
+          id: `q-paste-${parsed.length + 1}`,
+          type: 'connect_pair',
+          question: 'A hnuaia mi te hi a inmil zelin zawm rawh le:',
+          pairs: chunk,
+          verseRef: 'Bible Inzawmna',
+          verseText: chunk.map((p) => `${p.left} ➔ ${p.right}`).join(' • '),
+          points: pointsPerQ,
+          hasHiddenChest: c === 0,
+        });
+      }
+
+      setParsedQuestions(parsed);
+      setPasteError('');
+      return;
+    }
+
+    // 3. SINGLE-TYPE VALIDATION FOR THE OTHER 6 TYPES
+    for (let i = 0; i < lines.length; i++) {
+      const parts = lines[i].split('|').map((p) => p.trim());
+      const result = parseSingleQuestionLine(compType, parts, i + 1, i + 1);
+      if (result.error) {
+        setPasteError(result.error);
+        return;
+      }
+      if (result.question) {
+        parsed.push(result.question);
       }
     }
 
     if (parsed.length === 0) {
       setPasteError(
-        'Thu chhut luh hi format nen a inmil lo. Khawngaihin Entirna (Example) a mi ang chiah hian chhu lut rawh le.'
+        `Thu chhut luh hi ${currentTypeConfig.formatTitle} nen a inmil lo. Format: ${currentTypeConfig.placeholder}`
       );
     } else {
       setParsedQuestions(parsed);
@@ -354,37 +767,11 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     }
   };
 
-  // Provide quick paste template
+  // Provide quick paste template specific to selected competition type
   const handleLoadTemplate = () => {
-    if (compType === 'word_scramble') {
-      setRawPasteBox(
-        `LEIBB | BIBLE | II Timothea 3:16 | Pathian Lehkha Thu zawng zawng hi Pathian thawk khuma pek a ni a.\nSEUSAJ | ISUA | Mathaia 1:21 | Fapa a hring ang a, a hmingah chuan ISUA i sa ang.\nNAIDAV | DAVIDA | I Samuela 16:13 | Tichuan Samuelan hriak bawm chu a la a, a unaute zingah chuan hriak a thih ta a.`
-      );
-    } else if (compType === 'verse_detective') {
-      setRawPasteBox(
-        `Pathianin khawvel a hmangaih em em a, a Fapa mal neih chhun a pe a | Dik | He chang hi Johana 3:16 a mi a ni e | Johana 3:16 | Pathianin khawvel a hmangaih em em a, chutichuan a Fapa mal neih chhun a pe a...\nLALPA chu mi vengtu a ni a, ka chawlh a kim ang | Diklo | "Ka tlachham lo vang" zawk tur a ni | Sam 23:1 | LALPA chu mi vengtu a ni a, ka tlachham lo vang.`
-      );
-    } else if (compType === 'two_truths_one_lie') {
-      setRawPasteBox(
-        `Samsonan sabengtung khanghuain mi sangkhat a that | Davida chu Saula fanu Mikali nen an innei | Goliaha chu a kut leh ke tinte zung ruk theuh a nei | Goliaha ni lovin Rafa fapa mi lian zawk kha a ni | II Samuela 21:20-21 | Mi lian pakhat a awm a, a kut leh a ke zung tangte chu paruk theuh a ni a...`
-      );
-    } else if (compType === 'emoji_story') {
-      setRawPasteBox(
-        `🚢 🌧️ 🕊️ 🌿 🌈 | Nova Lawng | Mosia Tuipui Sen | Jona leh Sangha | Adama leh Evi | Genesis 8:11 | Tlaiah chuan thuro chu a hnenah a lo thleng a, a hmuiah chuan oliv hnah hring a lo seh a.\n🐋 🌊 🧔 💨 🚢 | Jona Chanchin | Nova Lawng | Davida leh Goliaha | Pathian Thilsiam | Jona 1:17 | LALPA chuan Jona lem turin sangha lianpui a ruat a.`
-      );
-    } else if (compType === 'connect_pair') {
-      setRawPasteBox(
-        `Nova:Lawng a siam, Davida:Goliaha a that, Mosia:Tuipui Sen a then | Hebrai 11:7 | Rinnain Nova chu a chhungte chhandamna turin lawng a tuk a.`
-      );
-    } else if (compType === 'fill_blank') {
-      setRawPasteBox(
-        `LALPA chu ka lungpui leh ka kulhbip leh ka ___ a ni | Chhandamtu | Vengtu | Roreltu | Lalber | Sam 18:2 | LALPA chu ka lungpui leh ka kulhbip leh ka chhandamtu a ni.\nA tirin Pathianin lei leh ___ a siam a | van | ni | thla | boruak | Genesis 1:1 | A tirin Pathianin lei leh van a siam a.`
-      );
-    } else {
-      setRawPasteBox(
-        `Pathianin a tir bera a siam chu eng nge ni? | Lei leh Van | Ni leh Thla | Mihringte | Rannungte | A | Genesis 1:1 | A tirin Pathianin lei leh van a siam a.\nNova lawnga rannung lut te kha engzat theuh nge an luh? | Pahnih theuh | Pasarih theuh | Pakhat theuh | Pali theuh | A | Genesis 7:9 | Pathianin Nova thu a pek ang khan a pachal leh a pinuin pahnih pahnihin Nova hnenah lawngah chuan an lut a.\nLal Isua hrinna hmun khua chu eng nge ni? | Bethlehem | Nazaret | Jerusalem | Samari | A | Mika 5:2 | Nang, Bethlehem Ephratah, Juda zinga mi tlemte ni mah la, nangmah atang hian ka tan Israelte chunga roreltu tur chu a lo chhuak ang.`
-      );
-    }
+    setPasteError('');
+    setParsedQuestions([]);
+    setRawPasteBox(currentTypeConfig.template);
   };
 
   // Save or Publish competition
@@ -483,9 +870,6 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     setShowVerseDetail(false);
     setEarnedPointsThisQ(0);
     setTotalGameScore(0);
-    setTotalSpeedBonus(0);
-    setTotalChestBonus(0);
-    setStreakBonus(0);
     setIsFinished(false);
     setViewMode('game');
   };
@@ -512,11 +896,11 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     if (isAnswered) return;
 
     let correct = false;
-    const timeSpentSec = (Date.now() - qStartTime) / 1000;
 
     if (currentQ.type === 'word_scramble') {
-      const cleanGiven = (givenAnswer || wordScrambleInput).trim().toUpperCase();
-      const cleanExpected = (currentQ.correctWord || '').trim().toUpperCase();
+      const rawStr = typeof givenAnswer === 'string' ? givenAnswer : wordScrambleInput;
+      const cleanGiven = String(rawStr || '').trim().toUpperCase();
+      const cleanExpected = String(currentQ.correctWord || '').trim().toUpperCase();
       correct = cleanGiven === cleanExpected;
     } else if (currentQ.type === 'verse_detective') {
       const choice = givenAnswer !== undefined ? givenAnswer : verseDetectiveChoice;
@@ -525,9 +909,17 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
       const lieIndex = currentQ.statements?.findIndex((s) => s.isLie);
       correct = givenAnswer === lieIndex;
     } else if (currentQ.type === 'fill_blank') {
-      const given = (givenAnswer || fillBlankInput).trim().toLowerCase();
-      const expected = (currentQ.correctWord || '').trim().toLowerCase();
-      correct = given === expected || givenAnswer === currentQ.correctAnswer;
+      if (typeof givenAnswer === 'number') {
+        const chosenOpt = String(currentQ.options?.[givenAnswer] || '').trim().toLowerCase();
+        const expected = String(currentQ.correctWord || '').trim().toLowerCase();
+        correct =
+          givenAnswer === currentQ.correctAnswer ||
+          (expected !== '' && chosenOpt === expected);
+      } else {
+        const given = String(givenAnswer ?? fillBlankInput ?? '').trim().toLowerCase();
+        const expected = String(currentQ.correctWord || '').trim().toLowerCase();
+        correct = expected !== '' && given === expected;
+      }
     } else if (currentQ.type === 'connect_pair') {
       const allPairs = currentQ.pairs || [];
       const correctMatches = allPairs.filter((p) => matchedPairs[p.left] === p.right);
@@ -541,34 +933,14 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
     setIsAnswered(true);
 
     const basePts = currentQ.points || activeComp?.pointsPerQuestion || 10;
-    let earned = correct ? basePts : 0;
-
-    // Speed bonus: Answered in < 5 seconds gets +5 points
-    let speedBonus = 0;
-    if (correct && timeSpentSec <= 5) {
-      speedBonus = 5;
-      setSpeedBonusAwarded(true);
-      setTotalSpeedBonus((prev) => prev + 5);
-      earned += 5;
-    } else {
-      setSpeedBonusAwarded(false);
-    }
-
-    // Hidden chest bonus: +20 points
-    let chestBonus = 0;
-    if (correct && currentQ.hasHiddenChest) {
-      chestBonus = 20;
-      setHiddenChestAwarded(true);
-      setShowChestAnimation(true);
-      setTotalChestBonus((prev) => prev + 20);
-      earned += 20;
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-    } else {
-      setHiddenChestAwarded(false);
-    }
+    const earned = correct ? basePts : 0;
 
     setEarnedPointsThisQ(earned);
-    setTotalGameScore((prev) => prev + (correct ? basePts : 0));
+    setTotalGameScore((prev) => prev + earned);
+
+    setTimeout(() => {
+      answerRevealRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 60);
   };
 
   // Next Question or Finish
@@ -586,26 +958,16 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
       setIsCorrect(false);
       setShowVerseDetail(false);
       setEarnedPointsThisQ(0);
-      setShowChestAnimation(false);
     } else {
       handleFinishGame();
     }
   };
 
-  // Finish game & record to League Memory
+  // Finish game & record to League Memory (No bonus points - pure question points only)
   const handleFinishGame = () => {
     setIsFinished(true);
 
-    // Calculate streak bonus: 4 weeks streak = +50 points
-    const currentStreak = userLeague?.currentStreak || 0;
-    let awardedStreakBonus = 0;
-    if (currentStreak + 1 >= 4 && (currentStreak + 1) % 4 === 0) {
-      awardedStreakBonus = 50;
-      setStreakBonus(50);
-    }
-
-    const totalEarned =
-      totalGameScore + totalSpeedBonus + totalChestBonus + awardedStreakBonus;
+    const totalEarned = totalGameScore;
 
     // Trigger celebration confetti
     try {
@@ -627,9 +989,9 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
         type: activeComp.competitionType || activeComp.type || 'mcq_classic',
         score: totalGameScore,
         maxScore: questions.reduce((sum, q) => sum + (q.points || 10), 0),
-        speedBonus: totalSpeedBonus,
-        hiddenChestBonus: totalChestBonus,
-        streakBonus: awardedStreakBonus,
+        speedBonus: 0,
+        hiddenChestBonus: 0,
+        streakBonus: 0,
         totalEarned,
       });
 
@@ -722,7 +1084,7 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
       {viewMode === 'leaderboard' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                   <Crown className="w-5 h-5 text-amber-500" />
@@ -732,7 +1094,104 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                   Point a pung zel a, a bo ngai lo (Permanent cumulative season score)
                 </p>
               </div>
+
+              {isDeveloper && leagueScores.length > 0 && (
+                <button
+                  onClick={handleClearLeaderboard}
+                  className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-black flex items-center gap-1.5 transition self-start sm:self-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Leaderboard 🗑️</span>
+                </button>
+              )}
             </div>
+
+            {/* Developer Inline Score Editor Modal / Card */}
+            {isDeveloper && editingScore && (
+              <form
+                onSubmit={handleSaveEditScore}
+                className="mb-5 p-4 rounded-2xl bg-blue-50/70 border-2 border-blue-200 space-y-3 animate-in fade-in"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-900">
+                    ✏️ Leaderboard Point & Hming Siamthatna (Developer)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingScore(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Hming:</label>
+                    <input
+                      type="text"
+                      value={editScoreName}
+                      onChange={(e) => setEditScoreName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Veng:</label>
+                    <input
+                      type="text"
+                      value={editScoreVeng}
+                      onChange={(e) => setEditScoreVeng(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Total Points:</label>
+                    <input
+                      type="number"
+                      value={editScorePoints}
+                      onChange={(e) => setEditScorePoints(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-mono font-black text-blue-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs items-end">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Weeks Played:</label>
+                    <input
+                      type="number"
+                      value={editScoreWeeks}
+                      onChange={(e) => setEditScoreWeeks(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Streak:</label>
+                    <input
+                      type="number"
+                      value={editScoreStreak}
+                      onChange={(e) => setEditScoreStreak(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition"
+                    >
+                      Save Rawh ✅
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingScore(null)}
+                      className="py-2 px-3 rounded-xl bg-white border border-slate-200 text-slate-600 font-bold text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
 
             {leagueScores.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-sm">
@@ -741,12 +1200,12 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
               </div>
             ) : (
               <div className="space-y-2.5">
-                {leagueScores.slice(0, 5).map((score, idx) => {
+                {leagueScores.map((score, idx) => {
                   const isUser = currentUser && score.userId === currentUser.id;
                   return (
                     <div
                       key={score.id || idx}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl transition border ${
+                      className={`flex items-center justify-between p-3.5 rounded-2xl transition border gap-3 ${
                         idx === 0
                           ? 'bg-linear-to-r from-amber-500/15 via-amber-100/40 to-white border-amber-200 shadow-xs'
                           : idx === 1
@@ -793,11 +1252,34 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="text-base font-black font-mono text-blue-900">
-                          {score.totalPoints || 0}
-                          <span className="text-xs font-semibold text-slate-400 ml-1">pts</span>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="text-right">
+                          <div className="text-base font-black font-mono text-blue-900">
+                            {score.totalPoints || 0}
+                            <span className="text-xs font-semibold text-slate-400 ml-1">pts</span>
+                          </div>
                         </div>
+
+                        {isDeveloper && (
+                          <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditScore(score)}
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 bg-white transition"
+                              title="Edit Score"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteScoreEntry(score)}
+                              className="p-1.5 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 bg-white transition"
+                              title="Delete Entry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -883,8 +1365,15 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
-                      {activeComp.competitionType || activeComp.type || 'MCQ Classic'}
+                      {(activeComp.competitionType || activeComp.type) === 'mixed_mode'
+                        ? '🔀 Mixed Mode (Mix vek)'
+                        : activeComp.competitionType || activeComp.type || 'MCQ Classic'}
                     </span>
+                    {questions.length > 0 && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                        {getQuestionTypeBreakdown(questions)}
+                      </span>
+                    )}
                     {activeComp.status === 'Draft' && (
                       <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-200">
                         Draft Mode (Developer Chauhvin a hmu thei)
@@ -978,7 +1467,7 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
               </div>
 
               {/* Game Metadata Badges */}
-              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 border-t border-slate-100 text-xs">
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3 pt-5 border-t border-slate-100 text-xs">
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-2.5">
                   <HelpCircle className="w-4 h-4 text-blue-600 shrink-0" />
                   <div>
@@ -1000,18 +1489,12 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-2.5">
-                  <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
+                  <Trophy className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div>
-                    <div className="text-slate-400 font-medium">Speed Bonus</div>
-                    <div className="font-black text-slate-900">+5 pts (&lt;5s)</div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center gap-2.5">
-                  <Gift className="w-4 h-4 text-purple-500 shrink-0" />
-                  <div>
-                    <div className="text-slate-400 font-medium">Bawm Thup</div>
-                    <div className="font-black text-slate-900">+20 pts 🎁</div>
+                    <div className="text-slate-400 font-medium">Point / zawhna</div>
+                    <div className="font-black text-slate-900">
+                      {activeComp.quizData?.pointsPerQuestion || activeComp.pointsPerQuestion || 10} pts
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1086,6 +1569,43 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                               {q.isCorrect ? 'A DIK E ✅' : 'A DIK LO ❌'}
                             </span>
                             {q.correctionNote && <span className="text-slate-500">({q.correctionNote})</span>}
+                          </div>
+                        )}
+
+                        {q.type === 'connect_pair' && q.pairs && (
+                          <div className="pl-7 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {q.pairs.map((p, pIdx) => (
+                              <div
+                                key={pIdx}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center justify-between"
+                              >
+                                <span>{p.left}</span>
+                                <span className="text-emerald-600">➔</span>
+                                <span>{p.right}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {q.type === 'two_truths_one_lie' && q.statements && (
+                          <div className="pl-7 space-y-1">
+                            {q.statements.map((st, stIdx) => (
+                              <div
+                                key={stIdx}
+                                className={`px-2.5 py-1.5 rounded-lg border text-xs flex items-center justify-between ${
+                                  st.isLie
+                                    ? 'bg-rose-50 border-rose-300 text-rose-900 font-bold'
+                                    : 'bg-slate-50 border-slate-100 text-slate-600'
+                                }`}
+                              >
+                                <span>{stIdx + 1}. {st.text}</span>
+                                {st.isLie && (
+                                  <span className="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-black">
+                                    LIE (DAW)
+                                  </span>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
 
@@ -1218,9 +1738,24 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
 
           {/* Top Bar: Progress & Timer */}
           <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 flex-wrap">
               <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg">
                 Zawhna {currentQIndex + 1} / {questions.length}
+              </span>
+              <span className="bg-purple-100 text-purple-800 px-2.5 py-1 rounded-lg font-black uppercase tracking-wide">
+                {currentQ.type === 'word_scramble'
+                  ? '🔤 Word Scramble'
+                  : currentQ.type === 'verse_detective'
+                  ? '🔍 Verse Detective'
+                  : currentQ.type === 'connect_pair'
+                  ? '🧩 Connect The Pair'
+                  : currentQ.type === 'emoji_story'
+                  ? '😇 Emoji Story'
+                  : currentQ.type === 'two_truths_one_lie'
+                  ? '🤥 2 Truths 1 Lie'
+                  : currentQ.type === 'fill_blank'
+                  ? '✍️ Fill The Blank'
+                  : '🧠 MCQ Classic'}
               </span>
               <span>•</span>
               <span className="font-mono text-emerald-600 font-bold">
@@ -1263,13 +1798,37 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
           {/* 1. WORD SCRAMBLE UI */}
           {currentQ.type === 'word_scramble' && (
             <div className="space-y-4 mb-6">
-              <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 text-center">
-                <div className="text-xs font-bold text-amber-700 mb-2 uppercase tracking-widest">
-                  Thumal chhiarlet tur:
+              <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 text-center space-y-3">
+                <div className="text-xs font-bold text-amber-700 uppercase tracking-widest">
+                  Thumal chhiarlet tur (Hawrawp hmetin rem rawh emaw chhu lut rawh):
                 </div>
                 <div className="text-3xl sm:text-4xl font-black tracking-widest text-amber-900 font-mono">
                   {currentQ.scrambledWord}
                 </div>
+
+                {!isAnswered && currentQ.scrambledWord && (
+                  <div className="flex items-center justify-center gap-2 flex-wrap pt-2">
+                    {currentQ.scrambledWord.split('').map((char, cIdx) => (
+                      <button
+                        key={cIdx}
+                        type="button"
+                        onClick={() => setWordScrambleInput((prev) => (prev + char).toUpperCase())}
+                        className="w-10 h-10 rounded-xl bg-white border-2 border-amber-300 hover:border-amber-500 text-amber-950 font-black font-mono text-base shadow-xs active:scale-95 transition"
+                      >
+                        {char}
+                      </button>
+                    ))}
+                    {wordScrambleInput.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setWordScrambleInput('')}
+                        className="px-3 h-10 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs transition"
+                      >
+                        Clear ✕
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {!isAnswered ? (
@@ -1383,30 +1942,32 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                           : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
-                      {p.left} {matchedPairs[p.left] && `-> ${matchedPairs[p.left]}`}
+                      {p.left} {matchedPairs[p.left] && `➔ ${matchedPairs[p.left]}`}
                     </button>
                   ))}
                 </div>
 
                 <div className="space-y-2">
-                  {currentQ.pairs?.map((p, idx) => (
-                    <button
-                      key={idx}
-                      disabled={isAnswered || !selectedLeftPair}
-                      onClick={() => {
-                        if (selectedLeftPair) {
-                          setMatchedPairs((prev) => ({
-                            ...prev,
-                            [selectedLeftPair]: p.right,
-                          }));
-                          setSelectedLeftPair(null);
-                        }
-                      }}
-                      className="w-full p-3 rounded-xl border-2 text-left text-xs font-bold border-slate-200 bg-white hover:border-blue-400 transition"
-                    >
-                      {p.right}
-                    </button>
-                  ))}
+                  {[...(currentQ.pairs || [])]
+                    .sort((a, b) => a.right.localeCompare(b.right))
+                    .map((p, idx) => (
+                      <button
+                        key={idx}
+                        disabled={isAnswered || !selectedLeftPair}
+                        onClick={() => {
+                          if (selectedLeftPair) {
+                            setMatchedPairs((prev) => ({
+                              ...prev,
+                              [selectedLeftPair]: p.right,
+                            }));
+                            setSelectedLeftPair(null);
+                          }
+                        }}
+                        className="w-full p-3 rounded-xl border-2 text-left text-xs font-bold border-slate-200 bg-white hover:border-blue-400 transition"
+                      >
+                        {p.right}
+                      </button>
+                    ))}
                 </div>
               </div>
 
@@ -1472,7 +2033,7 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
           {/* VERSE REVEAL ANIMATED CARD (MUST HAVE FEATURE)                           */}
           {/* ========================================================================= */}
           {isAnswered && (
-            <div className="space-y-4 animate-in fade-in duration-300">
+            <div ref={answerRevealRef} className="space-y-4 animate-in fade-in duration-300">
               {/* Immediate Feedback Banner */}
               <div
                 className={`p-4 rounded-2xl flex items-center justify-between gap-3 font-black text-sm border ${
@@ -1492,20 +2053,6 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                       ? `A DIK E! 🎉 (+${earnedPointsThisQ} pts)`
                       : 'A DIK LO E! ❌'}
                   </span>
-                </div>
-
-                {/* Speed & Chest Indicators */}
-                <div className="flex items-center gap-2 text-xs">
-                  {speedBonusAwarded && (
-                    <span className="bg-yellow-400 text-yellow-950 px-2 py-0.5 rounded-full font-black flex items-center gap-1">
-                      <Zap className="w-3 h-3 fill-yellow-950" /> +5s Speed
-                    </span>
-                  )}
-                  {hiddenChestAwarded && (
-                    <span className="bg-purple-300 text-purple-950 px-2 py-0.5 rounded-full font-black flex items-center gap-1 animate-bounce">
-                      <Gift className="w-3 h-3 fill-purple-950" /> +20 Bawm Thup
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -1678,8 +2225,9 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
                 1. Intihsiakna Chi (Type thlang rawh):
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 {[
+                  { id: 'mixed_mode', label: '🔀 Mixed Mode (Mix vek)', sub: 'Type hrang hrang mix' },
                   { id: 'mcq_classic', label: '🧠 MCQ Classic', sub: 'Zawhna pangngai' },
                   { id: 'verse_detective', label: '🔍 Verse Detective', sub: 'Chang dik/diklo' },
                   { id: 'word_scramble', label: '🔤 Word Scramble', sub: 'Thumal chhiarlet' },
@@ -1695,6 +2243,7 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                       setCompType(t.id as any);
                       setRawPasteBox('');
                       setParsedQuestions([]);
+                      setPasteError('');
                     }}
                     className={`p-3 rounded-xl border text-left transition ${
                       compType === t.id
@@ -1754,29 +2303,37 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
 
             {/* Big Paste Box */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-blue-600" />
-                  <span>2. Big Paste Box (Zawhna Paste Rawh):</span>
+                  <span>2. {currentTypeConfig.formatTitle}:</span>
                 </label>
                 <button
                   type="button"
                   onClick={handleLoadTemplate}
                   className="text-xs font-bold text-blue-600 hover:underline"
                 >
-                  Entirna (Template) dah rawh 📋
+                  Entirna dah rawh 📋
                 </button>
               </div>
 
+              <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-600 whitespace-pre-line leading-relaxed">
+                <span className="font-bold text-slate-800">Format:</span>{' '}
+                {compType === 'mixed_mode' ? `\n${currentTypeConfig.placeholder}` : currentTypeConfig.placeholder}
+              </div>
+
               <textarea
-                rows={5}
+                rows={compType === 'mixed_mode' ? 7 : 5}
                 value={rawPasteBox}
-                onChange={(e) => setRawPasteBox(e.target.value)}
-                placeholder="Question | A | B | C | D | Answer | VerseRef | VerseText"
+                onChange={(e) => {
+                  setRawPasteBox(e.target.value);
+                  if (pasteError) setPasteError('');
+                }}
+                placeholder={currentTypeConfig.placeholder}
                 className="w-full p-3.5 rounded-2xl border border-slate-200 font-mono text-xs focus:border-blue-600 focus:outline-hidden leading-relaxed"
               />
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={handleParsePasteBox}
@@ -1785,9 +2342,14 @@ export const BibleLeagueSystem: React.FC<BibleLeagueSystemProps> = ({
                   Convert & Check Rawh ✨
                 </button>
                 {parsedQuestions.length > 0 && (
-                  <span className="text-xs font-bold text-emerald-600">
-                    ✅ Zawhna {parsedQuestions.length} convert fel a ni e!
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-emerald-600">
+                      ✅ Zawhna {parsedQuestions.length} convert fel a ni e!
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black">
+                      {getQuestionTypeBreakdown(parsedQuestions)}
+                    </span>
+                  </div>
                 )}
               </div>
 

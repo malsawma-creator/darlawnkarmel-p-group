@@ -671,6 +671,43 @@ export const Storage = {
     safeSetItem(STORAGE_KEYS.LEAGUE_SCORES, JSON.stringify(scores));
   },
 
+  updateLeagueScore(updated: LeagueScore) {
+    this.init();
+    const scores = this.getLeagueScores().map((s) =>
+      s.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : s
+    );
+    this.saveLeagueScores(scores);
+    updateInFirestore(COLLECTIONS.LEAGUE_SCORES, updated.id, {
+      ...updated,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  deleteLeagueScore(scoreId: string, userId?: string) {
+    this.init();
+    const scores = this.getLeagueScores().filter((s) => s.id !== scoreId);
+    this.saveLeagueScores(scores);
+    deleteFromFirestore(COLLECTIONS.LEAGUE_SCORES, scoreId);
+
+    if (userId) {
+      const allSubs = this.getQuizSubmissions();
+      const toDelete = allSubs.filter((s) => s.userId === userId || s.memberId === userId);
+      const remaining = allSubs.filter((s) => s.userId !== userId && s.memberId !== userId);
+      safeSetItem(STORAGE_KEYS.QUIZ_SUBMISSIONS, JSON.stringify(remaining));
+      toDelete.forEach((sub) => {
+        if (sub.id) deleteFromFirestore(COLLECTIONS.QUIZ_SUBMISSIONS, sub.id);
+      });
+    }
+  },
+
+  clearAllLeagueScores() {
+    this.init();
+    safeSetItem(STORAGE_KEYS.LEAGUE_SCORES, JSON.stringify([]));
+    safeSetItem(STORAGE_KEYS.QUIZ_SUBMISSIONS, JSON.stringify([]));
+    clearCollectionInFirestore(COLLECTIONS.LEAGUE_SCORES);
+    clearCollectionInFirestore(COLLECTIONS.QUIZ_SUBMISSIONS);
+  },
+
   getQuizSubmissions(competitionId?: string): any[] {
     this.init();
     const str = localStorage.getItem(STORAGE_KEYS.QUIZ_SUBMISSIONS);
